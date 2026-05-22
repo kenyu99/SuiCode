@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <title>🤖 隨隨小助手</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="bgLayer"></div>
+
+    <div class="header">
+        <div class="avatar-wrap" id="headerAvatar">
+            <span class="avatar-emoji">🤪</span>
+        </div>
+        <div class="online-dot"></div>
+        <div class="header-info">
+            <h1 id="assistantName">沐晨</h1>
+            <span>✨ 隨隨小助手</span>
+        </div>
+        <div class="header-btns">
+            <button class="btn-settings" onclick="startNewChat()" title="新對話">🧹</button>
+            <button class="btn-settings" onclick="toggleCharacterSettings()" title="角色設定">🎭</button>
+            <button class="btn-settings" onclick="toggleTokenSettings()" title="Token與說明設定">🛠️</button>
+            <button class="btn-settings" onclick="toggleSettings()" title="設定">⚙️</button>
+        </div>
+    </div>
+
+    <div class="toggle-bar">
+        <div class="toggle-item" onclick="toggleThinking()">
+            <div class="toggle-switch" id="thinkingSwitch"></div>
+            <span class="toggle-label">🧠 思考模式</span>
+        </div>
+        <div class="toggle-item" onclick="toggleShowReasoning()">
+            <div class="toggle-switch" id="showReasoningSwitch"></div>
+            <span class="toggle-label">💭 顯示思考</span>
+        </div>
+        <div class="toggle-item" onclick="toggleCodeMode()">
+            <div class="toggle-switch" id="codeModeSwitch"></div>
+            <span class="toggle-label">💻 代碼模式</span>
+        </div>
+        <div class="toggle-item" onclick="toggleCodeExec()">
+            <div class="toggle-switch" id="codeExecSwitch"></div>
+            <span class="toggle-label">⚡ 雲端測試</span>
+        </div>
+    </div>
+
+    <div class="chat-area" id="chatArea">
+        <div class="welcome-msg" id="welcomeMsg">
+            <span class="big-emoji">🌸</span>
+            <h3>嗨～我是<span id="welcomeName">沐晨</span>！</h3>
+            <p>選檔案或打字跟我說，<br>我幫你分析、教你寫程式 💖</p>
+        </div>
+    </div>
+    
+    <div id="file-preview-container" class="file-preview-box">
+        <span>📄</span>
+        <span id="file-preview-name">檔名.html</span>
+        <button type="button" onclick="clearAttachment()" class="file-clear-btn">✕</button>
+    </div>
+
+    <div class="input-bar">
+        <button class="btn-icon btn-attach" onclick="triggerFileInput()" title="選擇檔案">📎</button>
+        <textarea id="textInput" rows="1" placeholder="輸入訊息..." oninput="autoResize(this)"></textarea>
+        <button class="btn-icon btn-send" id="btnSend" onclick="sendMessage()" title="發送">➤</button>
+    </div>
+
+    <!-- 設定彈窗 -->
+    <div class="modal-overlay hidden" id="settingsModal">
+        <div class="modal-dialog">
+            <h3>⚙️ 設定</h3>
+            <label>🔑 Gemini API 金鑰 (本機模式)</label>
+            <input type="password" id="apiKeyInput" placeholder="AIzaSyxxxxxxxxxxxxxxxxxxxx">
+            <div class="api-link-wrapper">
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="api-link">🔗 創建 API KEY</a>
+            </div>
+            
+            <label>🌐 安全代理伺服器 (伺服器模式)</label>
+            <input type="text" id="proxyUrlInput" placeholder="https://api.yourdomain.com">
+            <p style="font-size:11px; color:var(--text-muted); margin-top:2px;">💡 若填寫伺服器，將優先透過伺服器連線，保障金鑰不外洩。</p>
+
+            <label>🧠 模型名稱</label>
+            <select id="modelSelect">
+                <option value="gemini-3.5-flash">gemini-3.5-flash</option>
+                <option value="gemini-3.5-pro">gemini-3.5-pro</option>
+                <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+            </select>
+            <p class="modal-hint">💡 設定皆安全保存在您的本機快取中</p>
+            <div class="modal-btns">
+                <button class="btn-cancel" onclick="toggleSettings()">關閉</button>
+                <button class="btn-save" onclick="saveSettings()">💾 儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Token與說明設定彈窗 -->
+    <div class="modal-overlay hidden" id="tokenSettingsModal">
+        <div class="modal-dialog">
+            <h3>🛠️ Token 與說明設定</h3>
+            <label>📊 單次最高回覆 Token 上限</label>
+            <div class="range-group">
+                <input type="range" id="maxTokensRange" min="2048" max="65536" value="4096" step="2048" oninput="updateTokenValue(this.value)">
+                <span class="range-value" id="maxTokensValue">4096</span>
+            </div>
+            <p class="token-warning">
+                💡 溫馨提醒：設定的 Token 上限越高，AI 單次能回覆的內容就越完整、越長；但相對的回覆生成時間可能會變久，且 API 消耗的費用（或額度）也會隨之增加，請依實際需求適度調整喔！
+            </p>
+            
+            <div class="guide-btn-wrapper">
+                <button class="btn-reset btn-guide-trigger" onclick="openGuideModal()">
+                    📖 閱讀 隨隨 小助手使用說明
+                </button>
+            </div>
+            <div class="modal-btns">
+                <button class="btn-cancel" onclick="toggleTokenSettings()">關閉</button>
+                <button class="btn-save" onclick="saveTokenSettings()">💾 儲存設定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 說明書彈窗 -->
+    <div class="modal-overlay hidden" id="guideModal">
+        <div class="modal-dialog max-w-guide">
+            <h3>📖 隨隨 使用說明書</h3>
+            <div class="guide-content">
+                <p class="guide-title">🎭 1. 如何創建角色？</p>
+                <p class="guide-text">點擊右上方 <b class="highlight-text">🎭 角色設定</b> 按鈕，可在彈窗中自訂「助手名字」、「頭像」、「聊天背景」、「背景模糊與透明度」、「系統提示詞（Prompt）」及「開場白」。設定完成後點擊「儲存」，可選擇「更新當前角色」或「另存為新角色」。您也可以直接點擊下方預設按鈕，快速新增「沐晨」或「奧丁」角色。</p>
+                
+                <p class="guide-title">🧠 2. 如何更換模型？</p>
+                <p class="guide-text">點擊右上方 <b class="highlight-text">⚙️ 設定</b> 按鈕，在「模型名稱」下拉選單中可以自由切換不同版本的 Gemini 模型（例如：gemini-2.5-pro、gemini-3.5-flash 等），以適應不同的運算需求與速度。</p>
+                
+                <p class="guide-title">🔑 3. 關於 API 金鑰與安全模式</p>
+                <p class="guide-text">同樣在右上方 <b class="highlight-text">⚙️ 設定</b> 彈窗中，輸入您的 Gemini API 金鑰。金鑰將安全地儲存在您本地瀏覽器的緩存中（LocalStorage），絕不會上傳至任何第三方伺服器。如果您想免金鑰分享給他人安全使用，可以在設定中填入您部署的 Vercel 伺服器網址，並將金鑰欄位留空。</p>
+                
+                <p class="guide-title">🧹 4. 如何清除對話？</p>
+                <p class="guide-text">點擊右上方第一個 <b class="highlight-text">🧹 新對話</b> 按鈕，確認後即可清空目前畫面的所有對話歷史，並以該角色的初始設定與開場白重新開始乾淨的對話。</p>
+            </div>
+            <div class="modal-btns">
+                <button class="btn-save w-full" onclick="closeGuideModal()">我知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 角色設定彈窗 -->
+    <div class="modal-overlay hidden" id="characterModal">
+        <div class="modal-dialog">
+            <h3>🎭 角色設定</h3>
+            <label>📋 已儲存角色</label>
+            <div class="character-list" id="characterList"></div>
+            <label>🤖 助手名字</label>
+            <input type="text" id="characterNameInput" placeholder="例如：沐晨">
+            <label>🖼️ 角色頭像</label>
+            <input type="file" id="characterAvatarFile" accept="image/*" onchange="handleCharacterAvatarUpload()">
+            <button class="btn-reset w-full mt-1" onclick="removeCharacterAvatar()">🔄 清除自訂頭像</button>
+            <label>🎨 聊天背景</label>
+            <input type="file" id="characterBgFile" accept="image/*" onchange="handleCharacterBgUpload()">
+            <button class="btn-reset w-full mt-1" onclick="removeCharacterBg()">🔄 清除背景圖</button>
+            <label>🌫️ 背景模糊</label>
+            <div class="range-group">
+                <input type="range" id="bgBlurRange" min="0" max="5" value="0" step="0.1" oninput="updateBgPreview()">
+                <span class="range-value" id="bgBlurValue">0px</span>
+            </div>
+            <label>🔍 背景透明度</label>
+            <div class="range-group">
+                <input type="range" id="bgOpacityRange" min="0.1" max="1" value="1" step="0.05" oninput="updateBgPreview()">
+                <span class="range-value" id="bgOpacityValue">1</span>
+            </div>
+            <label>📝 系統提示</label>
+            <div class="input-with-expand">
+                <textarea id="characterPromptInput" placeholder="輸入你想給 AI 的角色設定..."></textarea>
+                <button class="btn-expand" onclick="openExpandEditor('characterPromptInput')" title="放大編輯">🔍</button>
+            </div>
+            <label>💬 開場白</label>
+            <div class="input-with-expand">
+                <textarea id="characterFirstMessageInput" placeholder="AI 在全新對話時的第一句話..."></textarea>
+                <button class="btn-expand" onclick="openExpandEditor('characterFirstMessageInput')" title="放大編輯">🔍</button>
+            </div>
+            <p class="modal-hint text-left">💡 頭像和背景圖片存在 IndexedDB</p>
+            <div class="modal-btns">
+                <button class="btn-reset flex-full mb-2" onclick="resetCharacterToDefault()">🔄 新增導師（沐晨）</button>
+                <button class="btn-reset flex-full mb-2" onclick="addCodeExpertCharacter()">🤖 新增代碼實踐者（奧丁）</button>
+                <button class="btn-cancel" onclick="toggleCharacterSettings()">取消</button>
+                <button class="btn-save" onclick="showSaveOptions()">💾 儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 儲存選項彈窗 -->
+    <div class="save-options-overlay hidden" id="saveOptionsOverlay">
+        <div class="save-options-card">
+            <h4>如何儲存這個角色？</h4>
+            <button class="btn-update" onclick="saveCharacter('update')">🔄 更新當前角色</button>
+            <button class="btn-new" onclick="saveCharacter('new')">➕ 另存為新角色</button>
+            <button class="btn-cancel-save" onclick="hideSaveOptions()">取消</button>
+        </div>
+    </div>
+
+    <!-- 放大編輯彈窗 -->
+    <div class="modal-overlay hidden" id="expandEditorModal">
+        <div class="modal-dialog max-w-expand">
+            <h3>✏️ 放大編輯</h3>
+            <textarea id="expandEditorText" class="expand-textarea"></textarea>
+            <div class="modal-btns">
+                <button class="btn-cancel" onclick="cancelExpandEditor()">取消</button>
+                <button class="btn-save" onclick="confirmExpandEditor()">✅ 確認修改</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="fileInput" multiple accept="*/*" style="display:none" onchange="handleFilesSelected()">
+    <script>
+        (function() {
+            // ==================== IndexedDB ====================
+            const DB_NAME = 'LuluImageDB';
+            const STORE_NAME = 'images';
+            function openDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_NAME, 1);
+                    request.onupgradeneeded = (e) => {
+                        if (!e.target.result.objectStoreNames.contains(STORE_NAME)) {
+                            e.target.result.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                        }
+                    };
+                    request.onsuccess = (e) => resolve(e.target.result);
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+            async function saveImageToDB(id, dataUrl) {
+                const db = await openDB();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(STORE_NAME, 'readwrite');
+                    tx.objectStore(STORE_NAME).put({ id, dataUrl });
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
+                });
+            }
+            async function getImageFromDB(id) {
+                const db = await openDB();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(STORE_NAME, 'readonly');
+                    const req = tx.objectStore(STORE_NAME).get(id);
+                    req.onsuccess = () => resolve(req.result ? req.result.dataUrl : null);
+                    req.onerror = () => reject(req.error);
+                });
+            }
+            async function deleteImageFromDB(id) {
+                const db = await openDB();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(STORE_NAME, 'readwrite');
+                    tx.objectStore(STORE_NAME).delete(id);
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
+                });
+            }
+
+            // ==================== DOM ====================
+            const bgLayer = document.getElementById('bgLayer');
+            const chatArea = document.getElementById('chatArea');
+            const welcomeMsg = document.getElementById('welcomeMsg');
+            const textInput = document.getElementById('textInput');
+            const fileInput = document.getElementById('fileInput');
+            const btnSend = document.getElementById('btnSend');
+            const thinkingSwitch = document.getElementById('thinkingSwitch');
+            const showReasoningSwitch = document.getElementById('showReasoningSwitch');
+            const codeModeSwitch = document.getElementById('codeModeSwitch');
+            const codeExecSwitch = document.getElementById('codeExecSwitch');
+            const headerAvatar = document.getElementById('headerAvatar');
+            const settingsModal = document.getElementById('settingsModal');
+            const apiKeyInput = document.getElementById('apiKeyInput');
+            const proxyUrlInput = document.getElementById('proxyUrlInput');
+            const modelSelect = document.getElementById('modelSelect');
+            const tokenSettingsModal = document.getElementById('tokenSettingsModal');
+            const maxTokensRange = document.getElementById('maxTokensRange');
+            const maxTokensValue = document.getElementById('maxTokensValue');
+            const guideModal = document.getElementById('guideModal');
+            const characterModal = document.getElementById('characterModal');
+            const characterNameInput = document.getElementById('characterNameInput');
+            const characterPromptInput = document.getElementById('characterPromptInput');
+            const characterFirstMessageInput = document.getElementById('characterFirstMessageInput');
+            const characterAvatarFile = document.getElementById('characterAvatarFile');
+            const characterBgFile = document.getElementById('characterBgFile');
+            const bgBlurRange = document.getElementById('bgBlurRange');
+            const bgOpacityRange = document.getElementById('bgOpacityRange');
+            const bgBlurValue = document.getElementById('bgBlurValue');
+            const bgOpacityValue = document.getElementById('bgOpacityValue');
+            const assistantNameEl = document.getElementById('assistantName');
+            const welcomeNameEl = document.getElementById('welcomeName');
+            const characterListEl = document.getElementById('characterList');
+            const saveOptionsOverlay = document.getElementById('saveOptionsOverlay');
+            const expandEditorModal = document.getElementById('expandEditorModal');
+            const expandEditorText = document.getElementById('expandEditorText');
+
+            // ==================== 開關狀態 ====================
+            const TOGGLE_STORAGE_KEY = 'lulu_toggle_settings';
+            let thinkingEnabled = true, showReasoning = true, codeMode = false, codeExecEnabled = false;
+
+            function getToggleSettings() {
+                const raw = localStorage.getItem(TOGGLE_STORAGE_KEY);
+                if (raw) try { return JSON.parse(raw); } catch(e) {}
+                return { thinkingEnabled: true, showReasoning: true, codeMode: false, codeExecEnabled: false };
+            }
+            function saveToggleSettings() {
+                localStorage.setItem(TOGGLE_STORAGE_KEY, JSON.stringify({ thinkingEnabled, showReasoning, codeMode, codeExecEnabled }));
+            }
+            function loadToggleSettings() {
+                const s = getToggleSettings();
+                thinkingEnabled = s.thinkingEnabled;
+                showReasoning = s.showReasoning;
+                codeMode = s.codeMode || false;
+                codeExecEnabled = s.codeExecEnabled || false;
+                updateToggleUI();
+            }
+            function updateToggleUI() {
+                thinkingEnabled ? thinkingSwitch.classList.add('active') : thinkingSwitch.classList.remove('active');
+                showReasoning ? showReasoningSwitch.classList.add('active') : showReasoningSwitch.classList.remove('active');
+                codeMode ? codeModeSwitch.classList.add('active') : codeModeSwitch.classList.remove('active');
+                if(codeExecSwitch) codeExecEnabled ? codeExecSwitch.classList.add('active') : codeExecSwitch.classList.remove('active');
+            }
+            function toggleThinking() { thinkingEnabled = !thinkingEnabled; updateToggleUI(); saveToggleSettings(); showToast(thinkingEnabled ? '思考模式已開啟 🧠' : '思考模式已關閉 ⚡'); }
+            function toggleShowReasoning() { showReasoning = !showReasoning; updateToggleUI(); saveToggleSettings(); showToast(showReasoning ? '思考過程顯示已開啟 💭' : '思考過程顯示已關閉 🙈'); }
+            function toggleCodeMode() { codeMode = !codeMode; updateToggleUI(); saveToggleSettings(); showToast(codeMode ? '代碼模式已開啟 💻 (長輸出)' : '聊天模式 🗣️'); }
+            function toggleCodeExec() { codeExecEnabled = !codeExecEnabled; updateToggleUI(); saveToggleSettings(); showToast(codeExecEnabled ? '雲端沙盒測試已開啟 ⚡' : '雲端測試已關閉 ❌'); }
+
+            // ==================== 多角色 ====================
+            const CHARACTERS_STORAGE_KEY = 'lulu_characters';
+            const ACTIVE_CHAR_ID_KEY = 'lulu_active_char_id';
+            function getAllCharacters() { return JSON.parse(localStorage.getItem(CHARACTERS_STORAGE_KEY) || '[]'); }
+            function saveAllCharacters(chars) { localStorage.setItem(CHARACTERS_STORAGE_KEY, JSON.stringify(chars)); }
+            function getActiveCharId() { return localStorage.getItem(ACTIVE_CHAR_ID_KEY); }
+            function setActiveCharId(id) { localStorage.setItem(ACTIVE_CHAR_ID_KEY, id); }
+            function getActiveCharacter() {
+                const chars = getAllCharacters();
+                const id = getActiveCharId();
+                return chars.find(c => c.id === id) || (chars[0] ? (setActiveCharId(chars[0].id), chars[0]) : null);
+            }
+
+            const TUTOR_PROMPT = `你是使用者的專屬「全棧技術引路人與蘇格拉底式程式導師」。你的名字是沐晨 (Muchen)，教學風格耐心、細緻、循序漸進，並善於用啟發式問題幫助使用者建立底層邏輯。
+
+【教學與引導規則】：
+1. 課程不限 any 程式語言，使用者提出想學什麼（例如：Python、React、SQL 等），你便為其量身規劃循序漸進的系統化學習路線。
+2. 【核心考核與打分機制】：
+   - 每次進入新課程、新概念、或新篇章之前，你【必須】先針對「上一堂課學過的內容」出一至兩道實作題對使用者進行考試。
+   - 收到使用者的回答或代碼後，你必須給出具體評分（滿分 100 分），並嚴格根據以下三個維度進行評估：
+     * 【邏輯架構】（代碼邏輯是否清晰、是否有處理邊界條件與潛在 Bug）
+     * 【代碼縮排】（格式是否標準、排版是否美觀、可讀性是否良好）
+     * 【冗餘程度】（代碼是否有多餘、繁瑣或重複的步驟，是否能以更優雅高效的方式重構）
+   - 打分完畢並給予詳細的 Code Review 建議後，若使用者通過考核（建議達 70 分以上），你再帶領其進入下一堂課的學習。
+3. 適時加入表情符號（Emojis）讓對話不生硬，並保持繁體中文回覆（包括程式碼註解）。`;
+
+            const CODER_PROMPT = `你是使用者的專屬代碼實踐者與首席架構師「奧丁 (Odin)」。你的唯一任務是根據使用者的需求，產出極致、高品質、可執行的完整程式碼。
+
+核心原則：
+* 直接給出完整的程式碼，不需要任何教學、解釋、前言或後續建議（除非使用者明確要求）。
+* 如果使用者的描述不夠清楚，用最簡短的方式確認需求，然後立刻給出程式碼。
+* 你可以在給出的程式碼中加入你自己的優化方案，但不要另外用文字說明你優化了什麼，讓程式碼本身說話。
+* 回覆時使用繁體中文，程式碼註解也盡量用繁體中文。
+* 永遠優先使用 Markdown 程式碼區塊（\`\`\`）來包裝程式碼。`;
+
+            function ensureDefaultCharacter() {
+                let chars = getAllCharacters();
+                if (chars.length === 0) {
+                    chars.push({
+                        id: 'char_' + Date.now(),
+                        name: '沐晨',
+                        systemPrompt: TUTOR_PROMPT,
+                        firstMessage: '嗨～我是沐晨！你的專屬程式導師。不論你想學什麼程式語言，我都會循序漸進地帶領你。準備好開始我們的第一堂課了嗎？告訴我你想學什麼吧！✨',
+                        avatarImgId: '',
+                        bgImgId: '',
+                        bgBlur: 0,
+                        bgOpacity: 1,
+                        createdAt: Date.now()
+                    });
+                    saveAllCharacters(chars);
+                    setActiveCharId(chars[0].id);
+                }
+                return getActiveCharacter();
+            }
+
+            let currentSystemPrompt = '';
+            let currentCharacterName = '';
+            let currentCharacterId = null;
+            let currentFirstMessage = '';
+            let currentAvatarImgId = '';
+            let currentBgImgId = '';
+            let currentBgBlur = 0;
+            let currentBgOpacity = 1;
+
+            function getChatStorageKey(cid) { return 'lulu_chat_history_' + cid; }
+            function saveChatHistory() {
+                if (!currentCharacterId) return;
+                const toSave = conversationHistory.filter(m => m.role !== 'system');
+                localStorage.setItem(getChatStorageKey(currentCharacterId), JSON.stringify(toSave));
+            }
+            function loadChatHistory(cid) { return JSON.parse(localStorage.getItem(getChatStorageKey(cid)) || '[]'); }
+            function clearCurrentChatHistory() {
+                if (!currentCharacterId) return;
+                localStorage.removeItem(getChatStorageKey(currentCharacterId));
+                conversationHistory = [{ role: 'system', content: currentSystemPrompt }];
+            }
+            function deleteChatHistoryForCharacter(cid) { localStorage.removeItem(getChatStorageKey(cid)); }
+
+            let conversationHistory = [];
+            function resetConversation() {
+                conversationHistory = [{ role: 'system', content: currentSystemPrompt }];
+                saveChatHistory();
+            }
+
+            async function applyCharacter(ch, skipSave = false) {
+                if (!ch) return;
+                if (currentCharacterId && currentCharacterId !== ch.id && !skipSave) saveChatHistory();
+                currentCharacterId = ch.id;
+                currentCharacterName = ch.name;
+                currentSystemPrompt = ch.systemPrompt;
+                currentFirstMessage = ch.firstMessage || '';
+                currentAvatarImgId = ch.avatarImgId || '';
+                currentBgImgId = ch.bgImgId || '';
+                currentBgBlur = ch.bgBlur || 0;
+                currentBgOpacity = ch.bgOpacity !== undefined ? ch.bgOpacity : 1;
+                setActiveCharId(ch.id);
+                assistantNameEl.textContent = ch.name;
+                if (welcomeNameEl) welcomeNameEl.textContent = ch.name;
+                const av = currentAvatarImgId ? await getImageFromDB(currentAvatarImgId) : '';
+                const bg = currentBgImgId ? await getImageFromDB(currentBgImgId) : '';
+                applyAvatarToHeader(av);
+                applyBackgroundToChat(bg, currentBgBlur, currentBgOpacity);
+            }
+
+            async function loadActiveCharacter() {
+                const active = getActiveCharacter() || ensureDefaultCharacter();
+                await applyCharacter(active, true);
+                const msgs = loadChatHistory(active.id);
+                conversationHistory = msgs.length ? [{ role: 'system', content: currentSystemPrompt }, ...msgs] : [{ role: 'system', content: currentSystemPrompt }];
+            }
+
+           async function switchToCharacter(ch) {
+                if (!ch || ch.id === currentCharacterId) { showToast('已經是使用中的角色囉～'); return; }
+                if (!confirm(`確定要切換到「${ch.name}」嗎？`)) return;
+                saveChatHistory();
+                await applyCharacter(ch);
+                const msgs = loadChatHistory(ch.id);
+                conversationHistory = [{ role: 'system', content: currentSystemPrompt }, ...msgs];
+                rebuildChatFromHistory(conversationHistory.slice(1));
+                saveChatHistory();
+                renderCharacterList();
+                loadCharacterToForm(ch);
+                showToast(`已切換到 ${ch.name} ✨`);
+            }
+
+            function rebuildChatFromHistory(messages) {
+                chatArea.querySelectorAll('.bubble, .typing-indicator').forEach(b => b.remove());
+                if (messages.length === 0) {
+                    if (currentFirstMessage) { hideWelcome(); addAIBubble(currentFirstMessage); }
+                    else { if (welcomeMsg) welcomeMsg.style.display = ''; }
+                } else {
+                    hideWelcome();
+                    messages.forEach(m => {
+                        if (m.role === 'user') addUserBubbleFromHistory(m.content);
+                        else addAIBubble(m.content);
+                    });
+                }
+                scrollToBottom();
+            }
+
+            function renderCharacterList() {
+                const chars = getAllCharacters();
+                const aid = getActiveCharId();
+                let h = '';
+                chars.forEach(c => {
+                    const ia = c.id === aid;
+                    h += `<div class="character-item ${ia?'active':''}" onclick="selectCharacter('${c.id}')">
+                        <span class="character-item-name">🤖 ${escapeHtml(c.name)} ${ia?'<span class="active-badge">使用中</span>':''}</span>
+                        ${chars.length>1?`<button class="btn-danger" onclick="event.stopPropagation();deleteCharacter('${c.id}')">✕</button>`:''}
+                    </div>`;
+                });
+                characterListEl.innerHTML = h || '<p style="text-align:center;color:#7a8a9a;">尚無角色</p>';
+            }
+
+            function loadCharacterToForm(ch) {
+                characterNameInput.value = ch.name;
+                characterPromptInput.value = ch.systemPrompt;
+                characterFirstMessageInput.value = ch.firstMessage || '';
+                bgBlurRange.value = ch.bgBlur || 0;
+                bgOpacityRange.value = ch.bgOpacity !== undefined ? ch.bgOpacity : 1;
+                bgBlurValue.textContent = bgBlurRange.value + 'px';
+                bgOpacityValue.textContent = bgOpacityRange.value;
+                characterAvatarFile.value = '';
+                characterBgFile.value = '';
+            }
+
+            function updateBgPreview() {
+                bgBlurValue.textContent = parseFloat(bgBlurRange.value).toFixed(1) + 'px';
+                bgOpacityValue.textContent = parseFloat(bgOpacityRange.value).toFixed(2);
+                const previewUrl = pendingBgDataUrl !== undefined ? pendingBgDataUrl : '';
+                applyBackgroundToChat(previewUrl, parseFloat(bgBlurRange.value), parseFloat(bgOpacityRange.value));
+            }
+
+            async function selectCharacter(id) { const c = getAllCharacters().find(x => x.id === id); if (c) await switchToCharacter(c); }
+
+            async function deleteCharacter(id) {
+                let chars = getAllCharacters();
+                if (chars.length <= 1) { showToast('至少保留一個角色喔～'); return; }
+                const ch = chars.find(x => x.id === id);
+                if (!ch) return;
+                if (!confirm(`確定刪除角色「${ch.name}」嗎？`)) return;
+                if (ch.avatarImgId) await deleteImageFromDB(ch.avatarImgId).catch(()=>{});
+                if (ch.bgImgId) await deleteImageFromDB(ch.bgImgId).catch(()=>{});
+                chars = chars.filter(x => x.id !== id);
+                saveAllCharacters(chars);
+                deleteChatHistoryForCharacter(id);
+                if (id === getActiveCharId()) {
+                    const na = chars[0];
+                    setActiveCharId(na.id);
+                    await applyCharacter(na, true);
+                    conversationHistory = [{ role: 'system', content: currentSystemPrompt }, ...loadChatHistory(na.id)];
+                    rebuildChatFromHistory(conversationHistory.slice(1));
+                }
+                renderCharacterList();
+                const a = getActiveCharacter(); if (a) loadCharacterToForm(a);
+                showToast('角色已刪除 🗑️');
+            }
+
+            async function resetCharacterToDefault() {
+                const dc = {
+                    id: 'char_' + Date.now(),
+                    name: '沐晨',
+                    systemPrompt: TUTOR_PROMPT,
+                    firstMessage: '嗨～我是沐晨！你的專屬程式導師。不論你想學什麼程式語言，我都會循序漸進地帶領你。準備好開始我們的第一堂課了嗎？告訴我你想學什麼吧！✨',
+                    avatarImgId: '', bgImgId: '', bgBlur: 0, bgOpacity: 1, createdAt: Date.now()
+                };
+                const chars = getAllCharacters();
+                chars.push(dc);
+                saveAllCharacters(chars);
+                setActiveCharId(dc.id);
+                saveChatHistory();
+                await applyCharacter(dc);
+                conversationHistory = [{ role: 'system', content: currentSystemPrompt }];
+                rebuildChatFromHistory([]);
+                saveChatHistory();
+                renderCharacterList();
+                loadCharacterToForm(dc);
+                showToast('已新增導師（沐晨）🌸');
+            }
+
+            async function addCodeExpertCharacter() {
+                const dc = {
+                    id: 'char_' + Date.now(),
+                    name: '奧丁',
+                    systemPrompt: CODER_PROMPT,
+                    firstMessage: '我是奧丁。請直接說明你的開發需求、輸入與輸出格式。我將直接為你產出最優化的可執行代碼。',
+                    avatarImgId: '', bgImgId: '', bgBlur: 0, bgOpacity: 1, createdAt: Date.now()
+                };
+                const chars = getAllCharacters();
+                chars.push(dc);
+                saveAllCharacters(chars);
+                setActiveCharId(dc.id);
+                saveChatHistory();
+                await applyCharacter(dc);
+                conversationHistory = [{ role: 'system', content: currentSystemPrompt }];
+                rebuildChatFromHistory([]);
+                saveChatHistory();
+                renderCharacterList();
+                loadCharacterToForm(dc);
+                showToast('已新增代碼實踐者（奧丁）💻');
+            }
+
+            let pendingAvatarDataUrl = undefined;
+            let pendingBgDataUrl = undefined;
+
+            function handleCharacterAvatarUpload() {
+                const file = characterAvatarFile.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => { pendingAvatarDataUrl = reader.result; applyAvatarToHeader(pendingAvatarDataUrl); showToast('頭像已預覽 ✨'); };
+                reader.readAsDataURL(file);
+            }
+            function removeCharacterAvatar() { pendingAvatarDataUrl = ''; applyAvatarToHeader(''); characterAvatarFile.value = ''; showToast('頭像已清除 🤪'); }
+            function handleCharacterBgUpload() {
+                const file = characterBgFile.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => { pendingBgDataUrl = reader.result; applyBackgroundToChat(pendingBgDataUrl, parseFloat(bgBlurRange.value), parseFloat(bgOpacityRange.value)); showToast('背景已預覽 ✨'); };
+                reader.readAsDataURL(file);
+            }
+            function removeCharacterBg() { pendingBgDataUrl = ''; applyBackgroundToChat('', parseFloat(bgBlurRange.value), parseFloat(bgOpacityRange.value)); characterBgFile.value = ''; showToast('背景已清除 🌸'); }
+
+            function applyAvatarToHeader(dataUrl) {
+                headerAvatar.innerHTML = dataUrl ? `<img src="${dataUrl}" alt="頭像">` : '<span class="avatar-emoji">🤪</span>';
+            }
+
+            function applyBackgroundToChat(dataUrl, blur, opacity) {
+                if (dataUrl) {
+                    bgLayer.style.backgroundImage = `url(${dataUrl})`;
+                    bgLayer.style.backgroundColor = 'transparent';
+                } else {
+                    bgLayer.style.backgroundImage = '';
+                    bgLayer.style.backgroundColor = '#f3f4f6';
+                }
+                bgLayer.style.filter = `blur(${blur}px)`;
+                bgLayer.style.opacity = opacity;
+            }
+
+            // ==================== 放大編輯 ====================
+            let currentExpandTarget = null;
+            function openExpandEditor(tid) { const el = document.getElementById(tid); if (el) { currentExpandTarget = tid; expandEditorText.value = el.value; expandEditorModal.classList.remove('hidden'); } }
+            function confirmExpandEditor() { if (currentExpandTarget) { const el = document.getElementById(currentExpandTarget); if (el) el.value = expandEditorText.value; expandEditorModal.classList.add('hidden'); currentExpandTarget = null; showToast('內容已更新 ✨'); } }
+            function cancelExpandEditor() { expandEditorModal.classList.add('hidden'); currentExpandTarget = null; }
+
+            function showSaveOptions() {
+                if (!characterNameInput.value.trim() || !characterPromptInput.value.trim()) { showToast('請填寫名字 and 系統提示～'); return; }
+                saveOptionsOverlay.classList.remove('hidden');
+            }
+            function hideSaveOptions() { saveOptionsOverlay.classList.add('hidden'); }
+
+            async function saveCharacter(mode) {
+                hideSaveOptions();
+                const name = characterNameInput.value.trim();
+                const prompt = characterPromptInput.value.trim();
+                const firstMsg = characterFirstMessageInput.value.trim();
+                const blur = parseFloat(bgBlurRange.value);
+                const opacity = parseFloat(bgOpacityRange.value);
+                if (!name || !prompt) { showToast('請填寫名字和系統提示～'); return; }
+
+                let chars = getAllCharacters();
+                const aid = getActiveCharId();
+                const activeChar = chars.find(c => c.id === aid);
+                let newAvatarImgId = activeChar ? activeChar.avatarImgId || '' : '';
+                let newBgImgId = activeChar ? activeChar.bgImgId || '' : '';
+
+                if (pendingAvatarDataUrl !== undefined) {
+                    if (newAvatarImgId) await deleteImageFromDB(newAvatarImgId).catch(()=>{});
+                    if (pendingAvatarDataUrl) { newAvatarImgId = 'avatar_' + Date.now(); await saveImageToDB(newAvatarImgId, pendingAvatarDataUrl); }
+                    else newAvatarImgId = '';
+                }
+                if (pendingBgDataUrl !== undefined) {
+                    if (newBgImgId) await deleteImageFromDB(newBgImgId).catch(()=>{});
+                    if (pendingBgDataUrl) { newBgImgId = 'bg_' + Date.now(); await saveImageToDB(newBgImgId, pendingBgDataUrl); }
+                    else newBgImgId = '';
+                }
+
+                const charData = { name, systemPrompt: prompt, firstMessage: firstMsg, avatarImgId: newAvatarImgId, bgImgId: newBgImgId, bgBlur: blur, bgOpacity: opacity };
+                if (mode === 'update') {
+                    const idx = chars.findIndex(c => c.id === aid);
+                    if (idx >= 0) chars[idx] = { ...chars[idx], ...charData };
+                    else { const nc = { id: 'char_' + Date.now(), ...charData, createdAt: Date.now() }; chars.push(nc); setActiveCharId(nc.id); }
+                } else {
+                    const nc = { id: 'char_' + Date.now(), ...charData, createdAt: Date.now() }; chars.push(nc); setActiveCharId(nc.id);
+                }
+                saveAllCharacters(chars);
+                pendingAvatarDataUrl = undefined; pendingBgDataUrl = undefined;
+                const na = chars.find(c => c.id === getActiveCharId());
+                if (na) {
+                    if (mode === 'update' && na.id === currentCharacterId) {
+                        currentCharacterName = na.name; currentSystemPrompt = na.systemPrompt; currentFirstMessage = na.firstMessage || '';
+                        currentAvatarImgId = na.avatarImgId || ''; currentBgImgId = na.bgImgId || '';
+                        currentBgBlur = na.bgBlur || 0; currentBgOpacity = na.bgOpacity !== undefined ? na.bgOpacity : 1;
+                        assistantNameEl.textContent = na.name; if (welcomeNameEl) welcomeNameEl.textContent = na.name;
+                        const av = currentAvatarImgId ? await getImageFromDB(currentAvatarImgId) : '';
+                        const bg = currentBgImgId ? await getImageFromDB(currentBgImgId) : '';
+                        applyAvatarToHeader(av); applyBackgroundToChat(bg, currentBgBlur, currentBgOpacity);
+                        if (conversationHistory[0]?.role === 'system') conversationHistory[0].content = currentSystemPrompt;
+                        else conversationHistory.unshift({ role: 'system', content: currentSystemPrompt });
+                        saveChatHistory(); showToast('角色已更新 ✨');
+                    } else {
+                        saveChatHistory(); await applyCharacter(na);
+                        conversationHistory = [{ role: 'system', content: currentSystemPrompt }, ...loadChatHistory(na.id)];
+                        rebuildChatFromHistory(conversationHistory.slice(1));
+                        saveChatHistory(); showToast('已切換到新角色 ✨');
+                    }
+                }
+                renderCharacterList();
+                const a = getActiveCharacter(); if (a) loadCharacterToForm(a);
+            }
+
+            function toggleCharacterSettings() {
+                if (characterModal.classList.contains('hidden')) {
+                    renderCharacterList();
+                    const a = getActiveCharacter(); if (a) loadCharacterToForm(a);
+                    pendingAvatarDataUrl = undefined; pendingBgDataUrl = undefined;
+                    characterModal.classList.remove('hidden');
+                } else characterModal.classList.add('hidden');
+            }
+
+            function clearChatMessages() {
+                chatArea.querySelectorAll('.bubble, .typing-indicator').forEach(b => b.remove());
+                if (welcomeMsg) welcomeMsg.style.display = '';
+                pendingFiles = []; textInput.value = ''; textInput.style.height = 'auto';
+            }
+
+            // ==================== API 設定 (Gemini 專武版) ====================
+            const STORAGE_KEY = 'lulu_gemini_config';
+            function getConfig() { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{"apiKey":"","proxyUrl":"","model":"gemini-3.5-flash"}'); }
+            function saveConfigToStorage(c) { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); }
+            function loadConfigToUI() {
+                const c = getConfig();
+                apiKeyInput.value = c.apiKey || '';
+                proxyUrlInput.value = c.proxyUrl || '';
+                modelSelect.value = c.model || 'gemini-3.5-flash';
+            }
+
+            function startNewChat() {
+                if (conversationHistory.length > 1) {
+                    if (confirm('確定要開始新對話嗎？')) {
+                        clearCurrentChatHistory();
+                        conversationHistory = [{ role: 'system', content: currentSystemPrompt }];
+                        clearChatMessages();
+                        if (currentFirstMessage) { hideWelcome(); addAIBubble(currentFirstMessage); }
+                        showToast('新對話開始囉～ 🌸');
+                    }
+                } else showToast('已經是新的對話啦～ ✨');
+            }
+
+            function showToast(m) { const e = document.querySelector('.toast'); if (e) e.remove(); const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
+            
+            // ==================== 核心：向伺服器/Google發送請求 ====================
+            async function callGemini(cfg, model) {
+                let systemInstruction = "";
+                const geminiContents = [];
+
+                for (const msg of conversationHistory) {
+                    if (msg.role === 'system') {
+                        systemInstruction = msg.content;
+                    } else {
+                        const role = msg.role === 'assistant' ? 'model' : 'user';
+                        geminiContents.push({ role, parts: [{ text: msg.content }] });
+                    }
+                }
+
+                const userMaxTokens = localStorage.getItem('lulu_max_tokens');
+                const maxTokens = userMaxTokens ? parseInt(userMaxTokens) : (codeMode ? 32768 : 4096);
+
+                const payload = {
+                    contents: geminiContents,
+                    generationConfig: {
+                        temperature: 0.7,
+                        maxOutputTokens: maxTokens
+                    }
+                };
+
+                if (systemInstruction) {
+                    payload.systemInstruction = { parts: [{ text: systemInstruction }] };
+                }
+
+                if (thinkingEnabled && model.includes('pro')) {
+                    payload.generationConfig.thinkingConfig = { thinkingBudget: 1024 };
+                }
+
+                if (codeExecEnabled) {
+                    payload.tools = [{ codeExecution: {} }];
+                }
+
+                let endpoint = "";
+                const isProxyMode = cfg.proxyUrl && cfg.proxyUrl.trim().startsWith("http");
+
+                if (isProxyMode) {
+                    // 伺服器代理模式 (安全隱藏 Key)
+                    let baseProxy = cfg.proxyUrl.trim();
+                    // 移除尾隨斜線以適應 Vercel 路由
+                    if (baseProxy.endsWith("/")) baseProxy = baseProxy.slice(0, -1);
+                    endpoint = `${baseProxy}?model=${model}`;
+                } else {
+                    // 本機直連模式
+                    endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cfg.apiKey.trim()}`;
+                }
+
+                const resp = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!resp.ok) {
+                    const errText = await resp.text();
+                    throw new Error(isProxyMode ? `代理伺服器回傳錯誤 (${resp.status}): ${errText}` : `Gemini 錯誤 (${resp.status}): ${errText}`);
+                }
+
+                const data = await resp.json();
+                const candidate = data.candidates?.[0];
+                if (!candidate) throw new Error("回傳格式異常");
+
+                let ar = "";
+                let thoughts = "";
+                let executionLogs = "";
+
+                if (candidate.content && candidate.content.parts) {
+                    for (const part of candidate.content.parts) {
+                        if (part.thought) thoughts += part.thought;
+                        if (part.text) ar += part.text;
+                        if (part.executableCode) {
+                            executionLogs += `\n\n> ⚡ **AI 正在雲端沙盒執行 Python 驗證：**\n\`\`\`python\n${part.executableCode.code}\n\`\`\`\n`;
+                        }
+                        if (part.codeExecutionResult) {
+                            const isOk = part.codeExecutionResult.outcome === "OUTCOME_OK";
+                            const icon = isOk ? "✅" : "❌";
+                            executionLogs += `> ${icon} **驗證結果 (${part.codeExecutionResult.outcome})：**\n\`\`\`text\n${part.codeExecutionResult.output || "無輸出"}\n\`\`\`\n\n`;
+                        }
+                    }
+                }
+
+                let finalResponse = executionLogs + ar;
+
+                if (showReasoning && thoughts) {
+                    finalResponse = `💭 **思考過程：**\n> ${thoughts.replace(/\n/g, '\n> ')}\n\n✨ **回答：**\n${finalResponse}`;
+                }
+
+                return finalResponse;
+            }
+
+            function scrollToBottom() { requestAnimationFrame(() => { chatArea.scrollTop = chatArea.scrollHeight; }); }
+            function hideWelcome() { if (welcomeMsg && welcomeMsg.style.display !== 'none') welcomeMsg.style.display = 'none'; }
+            function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 100) + 'px'; }
+
+            function addUserBubble(text, fns = []) {
+                hideWelcome();
+                const b = document.createElement('div');
+                b.className = 'bubble user';
+                
+                let fullText = text;
+                if (fns.length) {
+                    fullText += '\n' + fns.join(', ');
+                }
+                
+                if (fullText.length > 50) {
+                    let preview = escapeHtml(fullText.substring(0, 10)) + '...';
+                    b.innerHTML = '<div class="label">🧑‍💻 你</div>' +
+                        '<div class="collapsed-preview">' + preview + '</div>' +
+                        '<button class="btn-expand-collapse" style="margin-top:6px; font-size:11px; background:rgba(255,255,255,0.25); border:none; color:#fff; padding:4px 12px; border-radius:12px; cursor:pointer; width:100%;">🔽 展開完整內容</button>';
+                    
+                    const btn = b.querySelector('.btn-expand-collapse');
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const isExpanded = btn.textContent.includes('收起');
+                        if (isExpanded) {
+                            b.querySelector('.collapsed-preview').innerHTML = preview;
+                            b.querySelector('.collapsed-preview').classList.remove('expanded');
+                            btn.textContent = '🔽 展開完整內容';
+                        } else {
+                            b.querySelector('.collapsed-preview').innerHTML = escapeHtml(fullText).replace(/\n/g, '<br>');
+                            b.querySelector('.collapsed-preview').classList.add('expanded');
+                            btn.textContent = '🔼 收起';
+                        }
+                    });
+                } else {
+                    let h = '<div class="label">🧑‍💻 你</div>';
+                    if (fns.length) {
+                        h += fns.map(f => `<span class="file-tag">📄 ${escapeHtml(f)}</span>`).join(' ');
+                        if (text) h += '<br>' + escapeHtml(text);
+                    } else {
+                        h += escapeHtml(text);
+                    }
+                    b.innerHTML = h;
+                }
+                
+                chatArea.appendChild(b);
+                scrollToBottom();
+            }
+
+            function addUserBubbleFromHistory(content) {
+                hideWelcome();
+                const b = document.createElement('div');
+                b.className = 'bubble user';
+                
+                let rawText = '';
+                if (Array.isArray(content)) {
+                    rawText = content.filter(c => c.type === 'text').map(c => c.text).join('\n');
+                } else if (typeof content === 'string') {
+                    rawText = content;
+                }
+                
+                const filePattern = /檔案【(.+?)】：\n```[\s\S]*?```/g;
+                let fileNames = [];
+                let cleanText = rawText;
+                
+                cleanText = cleanText.replace(filePattern, (match, fileName) => {
+                    fileNames.push(fileName);
+                    return ''; 
+                });
+                
+                cleanText = cleanText.replace(/\n{3,}/g, '\n\n').trim();
+                
+                let fullDisplay = cleanText;
+                if (fileNames.length > 0) {
+                    fullDisplay += (fullDisplay ? '\n' : '') + '📎 已附檔案：' + fileNames.join(', ');
+                }
+                
+                const needsCollapse = fullDisplay.length > 50;
+                
+                if (needsCollapse) {
+                    let preview = escapeHtml(fullDisplay.substring(0, 10)) + '...';
+                    b.innerHTML = '<div class="label">🧑‍💻 你</div>' +
+                        '<div class="collapsed-preview">' + preview + '</div>' +
+                        '<button class="btn-expand-collapse" style="margin-top:6px; font-size:11px; background:rgba(255,255,255,0.25); border:none; color:#fff; padding:4px 12px; border-radius:12px; cursor:pointer; width:100%;">🔽 展開完整內容</button>';
+                    
+                    const btn = b.querySelector('.btn-expand-collapse');
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const isExpanded = btn.textContent.includes('收起');
+                        if (isExpanded) {
+                            b.querySelector('.collapsed-preview').innerHTML = preview;
+                            b.querySelector('.collapsed-preview').classList.remove('expanded');
+                            btn.textContent = '🔽 展開完整內容';
+                        } else {
+                            b.querySelector('.collapsed-preview').innerHTML = escapeHtml(fullDisplay).replace(/\n/g, '<br>');
+                            b.querySelector('.collapsed-preview').classList.add('expanded');
+                            btn.textContent = '🔼 收起';
+                        }
+                    });
+                } else {
+                    let displayHtml = '<div class="label">🧑‍💻 你</div>';
+                    if (cleanText) {
+                        displayHtml += '<div>' + escapeHtml(cleanText).replace(/\n/g, '<br>') + '</div>';
+                    }
+                    if (fileNames.length > 0) {
+                        displayHtml += '<div style="margin-top:6px;">' + fileNames.map(f => `<span class="file-tag">📄 ${escapeHtml(f)}</span>`).join(' ') + '</div>';
+                    }
+                    if (!cleanText && fileNames.length === 0) {
+                        displayHtml += '<div>(訊息)</div>';
+                    }
+                    b.innerHTML = displayHtml;
+                }
+                
+                chatArea.appendChild(b);
+            }
+            
+            function showFileContentModal(content) {
+                expandEditorText.value = content;
+                expandEditorText.readOnly = true;
+                expandEditorModal.querySelector('h3').textContent = '📄 原始內容（唯讀）';
+                
+                const btnSave = expandEditorModal.querySelector('.btn-save');
+                const btnCancel = expandEditorModal.querySelector('.btn-cancel');
+                
+                const originalSaveText = btnSave.textContent;
+                const originalSaveClick = btnSave.onclick;
+                const originalCancelDisplay = btnCancel.style.display;
+                
+                btnSave.textContent = '關閉';
+                btnSave.onclick = () => {
+                    expandEditorModal.classList.add('hidden');
+                    expandEditorText.readOnly = false;
+                    expandEditorModal.querySelector('h3').textContent = '✏️ 放大編輯';
+                    btnSave.textContent = originalSaveText;
+                    btnSave.onclick = originalSaveClick;
+                    btnCancel.style.display = originalCancelDisplay;
+                };
+                btnCancel.style.display = 'none'; 
+                
+                expandEditorModal.classList.remove('hidden');
+            }
+            
+            function addAIBubble(md) {
+                hideWelcome();
+                const b = document.createElement('div');
+                b.className = 'bubble ai';
+                const labelHtml = `<div class="label">${currentAvatarImgId ? '<img class="label-avatar" id="labelAvatarImg" src="">' : ''} ${currentCharacterName}</div>`;
+                
+                const shouldCollapse = md.length > 100;
+                
+                if (shouldCollapse) {
+                    let plainPreview = md.substring(0, 10).replace(/\n/g, '<br>');
+                    plainPreview = escapeHtml(plainPreview) + '...';
+                    
+                    b.innerHTML = labelHtml +
+                        '<div class="collapsed-preview">' + plainPreview + '</div>' +
+                        '<button class="btn-expand-collapse" style="margin-top:6px; font-size:12px; background:var(--primary-pale); border:1px solid var(--primary-soft); color:var(--primary-text); padding:4px 12px; border-radius:12px; cursor:pointer; width:100%;">🔽 展開完整內容</button>';
+                    
+                    const btn = b.querySelector('.btn-expand-collapse');
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const isExpanded = btn.textContent.includes('收起');
+                        if (isExpanded) {
+                            b.querySelector('.collapsed-preview').innerHTML = plainPreview;
+                            btn.textContent = '🔽 展開完整內容';
+                        } else {
+                            b.querySelector('.collapsed-preview').innerHTML = renderMarkdown(md);
+                            injectCodeCopyButtons(b);
+                            btn.textContent = '🔼 收起';
+                            setTimeout(() => { if (window.hljs) hljs.highlightAll(); }, 50);
+                        }
+                    });
+                } else {
+                    b.innerHTML = labelHtml + renderMarkdown(md);
+                    injectCodeCopyButtons(b);
+                }
+                
+                const actions = document.createElement('div');
+                actions.className = 'bubble-actions';
+                b.appendChild(actions);
+                
+                addDownloadButton(actions, md);
+                chatArea.appendChild(b);
+                scrollToBottom();
+                
+                if (currentAvatarImgId) {
+                    getImageFromDB(currentAvatarImgId).then(url => {
+                        const img = b.querySelector('#labelAvatarImg');
+                        if (img && url) img.src = url;
+                    });
+                }
+                
+                setTimeout(() => { if (window.hljs) hljs.highlightAll(); }, 50);
+            }
+
+            function injectCodeCopyButtons(bubbleElement) {
+                bubbleElement.querySelectorAll('pre').forEach(pre => {
+                    const codeEl = pre.querySelector('code');
+                    if (codeEl) {
+                        const copyBtn = document.createElement('button');
+                        copyBtn.className = 'code-copy-btn';
+                        copyBtn.textContent = '📋 複製代碼';
+                        copyBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(codeEl.innerText).then(() => {
+                                copyBtn.textContent = '✅ 已複製';
+                                copyBtn.classList.add('copied');
+                                setTimeout(() => {
+                                    copyBtn.textContent = '📋 複製代碼';
+                                    copyBtn.classList.remove('copied');
+                                }, 2000);
+                            });
+                        };
+                        pre.appendChild(copyBtn);
+                    }
+                });
+            }
+
+            function addDownloadButton(container, md) {
+                const btn = document.createElement('button'); btn.className = 'btn-download'; btn.textContent = '📥';
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const ext = detectFileType(md);
+                    const blob = new Blob([md], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url; a.download = ext;
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showToast(`已下載 ${ext} ✨`);
+                });
+                container.appendChild(btn);
+            }
+
+            function detectFileType(md) {
+                const match = md.match(/```(\w+)/);
+                if (match) {
+                    const map = { html:'html', css:'css', javascript:'js', js:'js', typescript:'ts', python:'py', java:'java', cpp:'cpp', c:'c', php:'php', ruby:'rb', go:'go', rust:'rs', swift:'swift', kotlin:'kt', sql:'sql', json:'json', xml:'xml', yaml:'yml', markdown:'md', bash:'sh' };
+                    return `code.${map[match[1].toLowerCase()] || match[1].toLowerCase()}`;
+                }
+                return (md.split('\n')[0].substring(0,20).replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, '_') || 'reply') + '.txt';
+            }
+
+            function addTypingIndicator() {
+                hideWelcome();
+                const d = document.createElement('div'); d.className = 'typing-indicator'; d.id = 'typingIndicator';
+                d.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+                chatArea.appendChild(d); scrollToBottom();
+            }
+            function removeTypingIndicator() { const d = document.getElementById('typingIndicator'); if (d) d.remove(); }
+
+            // ==================== Token / Guide 控制邏輯 ====================
+            function toggleTokenSettings() {
+                if (tokenSettingsModal.classList.contains('hidden')) {
+                    const savedTokens = localStorage.getItem('lulu_max_tokens') || '4096';
+                    maxTokensRange.value = savedTokens;
+                    maxTokensValue.textContent = savedTokens;
+                    tokenSettingsModal.classList.remove('hidden');
+                } else {
+                    tokenSettingsModal.classList.add('hidden');
+                }
+            }
+
+            // 更新預覽值
+            function updateTokenValue(val) {
+                maxTokensValue.textContent = val;
+            }
+
+            function saveTokenSettings() {
+                const val = maxTokensRange.value;
+                localStorage.setItem('lulu_max_tokens', val);
+                tokenSettingsModal.classList.add('hidden');
+                showToast(`Token 上限已儲存：${val} 💾`);
+            }
+
+            function openGuideModal() {
+                tokenSettingsModal.classList.add('hidden');
+                guideModal.classList.remove('hidden');
+            }
+
+            function closeGuideModal() {
+                guideModal.classList.add('hidden');
+            }
+
+            function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+            function renderMarkdown(md) {
+                return marked.parse(md); 
+            }
+
+            let pendingFiles = [];
+            function triggerFileInput() { fileInput.click(); }
+            
+            async function handleFilesSelected() {
+                const files = Array.from(fileInput.files);
+                if (!files.length) return;
+                pendingFiles = [];
+                
+                if (window.pdfjsLib) {
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+                }
+                
+                for (const f of files) {
+                    const entry = { name: f.name, type: f.type, content: '', dataUrl: null };
+                    
+                    const codeExtensions = /\.(txt|csv|json|xml|html?|css|js|ts|md|py|java|cpp?|php|rb|go|rs|swift|kt|sh|ya?ml|toml|ini|log|sql)$/i;
+                    const sheetExtensions = /\.(xlsx|xls|ods|tsv|dif|prn)$/i;
+                    const pdfExtension = /\.pdf$/i;
+                    
+                    const isCodeFile = codeExtensions.test(f.name);
+                    const isSheetFile = sheetExtensions.test(f.name);
+                    const isPdfFile = pdfExtension.test(f.name);
+                    const isTextFile = f.type.startsWith('text/');
+                    
+                    if (isCodeFile || isTextFile) {
+                        const slice = f.size > 500*1024 ? f.slice(0,500*1024) : f;
+                        entry.content = await readAsText(slice);
+                        if (f.size > 500*1024) entry.content += '\n...[截斷]';
+                        pendingFiles.push(entry);
+                        
+                    } else if (isSheetFile && window.XLSX) {
+                        try {
+                            const data = await readAsArrayBuffer(f);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            
+                            let result = `📊 試算表檔案：${f.name}\n`;
+                            result += `工作表數量：${workbook.SheetNames.length}\n`;
+                            result += `工作表名稱：${workbook.SheetNames.join(', ')}\n\n`;
+                            
+                            workbook.SheetNames.forEach(sheetName => {
+                                const sheet = workbook.Sheets[sheetName];
+                                const csvContent = XLSX.utils.sheet_to_csv(sheet, { FS: '\t', blankrows: false });
+                                const rowCount = csvContent.split('\n').filter(line => line.trim()).length;
+                                
+                                result += `── 📋 工作表：${sheetName}（約 ${rowCount} 行）──\n`;
+                                const lines = csvContent.split('\n');
+                                const limitedLines = lines.slice(0, 200);
+                                result += limitedLines.join('\n');
+                                if (lines.length > 200) {
+                                    result += `\n...[此工作表共 ${lines.length} 行，僅顯示前 200 行]`;
+                                }
+                                result += '\n\n';
+                            });
+                            
+                            entry.content = result;
+                            pendingFiles.push(entry);
+                            showToast(`已讀取試算表：${f.name} ✅`);
+                            
+                        } catch (err) {
+                            console.error('SheetJS 讀取失敗：', err);
+                            entry.content = `[無法讀取試算表檔案: ${f.name}，可能格式損壞]`;
+                            pendingFiles.push(entry);
+                            showToast(`試算表讀取失敗：${f.name} ⚠️`);
+                        }
+                        
+                    } else if (isPdfFile && window.pdfjsLib) {
+                        try {
+                            const data = await readAsArrayBuffer(f);
+                            const pdf = await pdfjsLib.getDocument({ data }).promise;
+                            
+                            let result = `📄 PDF 檔案：${f.name}\n`;
+                            result += `總頁數：${pdf.numPages}\n\n`;
+                            
+                            const maxPages = Math.min(pdf.numPages, 30);
+                            
+                            for (let i = 1; i <= maxPages; i++) {
+                                const page = await pdf.getPage(i);
+                                const textContent = await page.getTextContent();
+                                const pageText = textContent.items.map(item => item.str).join(' ');
+                                
+                                result += `── 📖 第 ${i} 頁 ──\n`;
+                                result += pageText + '\n\n';
+                            }
+                            
+                            if (pdf.numPages > 30) {
+                                result += `...[此 PDF 共 ${pdf.numPages} 頁，僅顯示前 30 頁]`;
+                            }
+                            
+                            entry.content = result;
+                            pendingFiles.push(entry);
+                            showToast(`已讀取 PDF：${f.name} ✅`);
+                            
+                        } catch (err) {
+                            console.error('PDF 讀取失敗：', err);
+                            entry.content = `[無法讀取 PDF 檔案: ${f.name}，可能格式損壞或加密]`;
+                            pendingFiles.push(entry);
+                            showToast(`PDF 讀取失敗：${f.name} ⚠️`);
+                        }
+                        
+                    } else if (f.type.startsWith('image/')) {
+                        showToast('暫不支援圖片上傳 📷');
+                        continue;
+                        
+                    } else {
+                        entry.content = `[無法讀取此類型檔案: ${f.name} (${f.type || '未知類型'})]`;
+                        pendingFiles.push(entry);
+                    }
+                }
+
+                if (pendingFiles.length === 0) {
+                    showToast('沒有可讀取的檔案 😢');
+                    fileInput.value = '';
+                    return;
+                }
+                
+                document.getElementById('file-preview-name').textContent = pendingFiles.map(f => f.name).join(', ');
+                document.getElementById('file-preview-container').style.display = 'flex';
+                fileInput.value = '';
+                textInput.focus();
+                showToast(`已選取 ${pendingFiles.length} 個檔案 ✅`);
+            }
+
+            function clearAttachment() {
+                pendingFiles = []; 
+                document.getElementById('file-preview-container').style.display = 'none'; 
+                
+                const fileInput = document.getElementById('fileInput'); 
+                if (fileInput) fileInput.value = ''; 
+                showToast('已取消附檔 ❌'); 
+            }
+                        
+            function readAsText(f) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsText(f); }); }
+            function readAsDataURL(f) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); }); }
+            function readAsArrayBuffer(f) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsArrayBuffer(f);
+                });
+            }
+
+            async function sendMessage() {
+                const ut = textInput.value.trim();
+                const hf = pendingFiles.length > 0;
+                if (!ut && !hf) { showToast('請輸入訊息或選擇檔案～'); return; }
+
+                // 奧丁角色預設強制開啟雲端測試
+                if (currentCharacterName === '奧丁' && !codeExecEnabled) {
+                    const proceed = confirm('「奧丁」需要啟用「雲端測試」才可進行代碼驗證。是否立即開啟並繼續發送？');
+                    if (proceed) {
+                        codeExecEnabled = true;
+                        updateToggleUI();
+                        saveToggleSettings();
+                    } else {
+                        return;
+                    }
+                }
+
+                btnSend.disabled = true;
+                addUserBubble(ut || '(傳送檔案)', pendingFiles.map(f => f.name));
+                textInput.value = ''; textInput.style.height = 'auto';
+                addTypingIndicator();
+                const fts = [...pendingFiles]; pendingFiles = [];
+                document.getElementById('file-preview-container').style.display = 'none';
+
+                try {
+                    const cfg = getConfig();
+                    const model = cfg.model || 'gemini-3.5-flash';
+                    
+                    // 驗證金鑰或代理伺服器是否存在
+                    const hasKey = cfg.apiKey && cfg.apiKey.trim().length > 0;
+                    const hasProxy = cfg.proxyUrl && cfg.proxyUrl.trim().startsWith("http");
+                    if (!hasKey && !hasProxy) throw new Error('請先設定 Gemini API 金鑰或代理伺服器網址');
+
+                    let mc = [];
+                    if (ut) mc.push(ut);
+                    
+                    if (fts.length) {
+                        fts.forEach(f => {
+                            if (f.content) mc.push(`檔案【${f.name}】：\n\`\`\`\n${f.content}\n\`\`\``);
+                        });
+                    }
+                    const userContentText = mc.join('\n\n');
+
+                    conversationHistory.push({ role: 'user', content: userContentText });
+                    saveChatHistory();
+
+                    const reply = await callGemini(cfg, model);
+                    
+                    removeTypingIndicator();
+                    addAIBubble(reply);
+                    
+                    conversationHistory.push({ role: 'assistant', content: reply });
+                    if (conversationHistory.length > 42) conversationHistory = [{ role: 'system', content: currentSystemPrompt }, ...conversationHistory.slice(-40)];
+                    saveChatHistory();
+
+                } catch (err) {
+                    removeTypingIndicator();
+                    const eb = document.createElement('div'); eb.className = 'bubble ai';
+                    eb.innerHTML = `<div class="label">🦊 ${currentCharacterName}</div>⚠️ ${escapeHtml(err.message)}`;
+                    chatArea.appendChild(eb); scrollToBottom();
+                }
+                btnSend.disabled = false;
+                textInput.focus();
+            }
+
+            function toggleSettings() {
+                if (settingsModal.classList.contains('hidden')) { loadConfigToUI(); settingsModal.classList.remove('hidden'); }
+                else settingsModal.classList.add('hidden');
+            }
+
+            function saveSettings() {
+                const ak = apiKeyInput.value.trim();
+                const pu = proxyUrlInput.value.trim();
+                const md = modelSelect.value;
+                
+                if (!ak && !pu) { showToast('請填寫 API 金鑰或安全代理伺服器 🔑'); return; }
+
+                const isFirstTime = !localStorage.getItem('lulu_guide_shown');
+
+                saveConfigToStorage({ apiKey: ak, proxyUrl: pu, model: md });
+                settingsModal.classList.add('hidden');
+                showToast('設定已儲存 ✨');
+
+                if (isFirstTime) {
+                    localStorage.setItem('lulu_guide_shown', 'true');
+                    setTimeout(() => {
+                        openGuideModal();
+                    }, 800);
+                }
+            }
+
+            textInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+            [settingsModal, characterModal, saveOptionsOverlay, expandEditorModal, tokenSettingsModal, guideModal].forEach(el => el.addEventListener('click', (e) => { if (e.target === el) { if (el === saveOptionsOverlay) hideSaveOptions(); else if (el === expandEditorModal) cancelExpandEditor(); else el.classList.add('hidden'); } }));
+
+            async function init() {
+                loadToggleSettings();
+                loadConfigToUI();
+                ensureDefaultCharacter();
+                await loadActiveCharacter();
+                
+                const cfg = getConfig();
+                const hasKey = cfg.apiKey && cfg.apiKey.trim().length > 0;
+                const hasProxy = cfg.proxyUrl && cfg.proxyUrl.trim().startsWith("http");
+                
+                if (!hasKey && !hasProxy) {
+                    setTimeout(() => { 
+                        settingsModal.classList.remove('hidden'); 
+                        showToast('歡迎！請先設定 Gemini API 金鑰或代理伺服器 🔑'); 
+                    }, 600);
+                }
+                
+                textInput.addEventListener('input', () => autoResize(textInput));
+                if (conversationHistory.length > 1) {
+                    hideWelcome();
+                    for (let i = 1; i < conversationHistory.length; i++) {
+                        const m = conversationHistory[i];
+                        if (m.role === 'user') addUserBubbleFromHistory(m.content);
+                        else addAIBubble(m.content);
+                    }
+                    scrollToBottom();
+                } else if (currentFirstMessage) { hideWelcome(); addAIBubble(currentFirstMessage); }
+            }
+
+            window.sendMessage = sendMessage;
+            window.toggleSettings = toggleSettings;
+            window.saveSettings = saveSettings;
+            window.triggerFileInput = triggerFileInput;
+            window.handleFilesSelected = handleFilesSelected;
+            window.autoResize = autoResize;
+            window.startNewChat = startNewChat;
+            window.clearChatHistory = clearCurrentChatHistory;
+            window.toggleCharacterSettings = toggleCharacterSettings;
+            window.toggleTokenSettings = toggleTokenSettings;
+            window.updateTokenValue = updateTokenValue;
+            window.saveTokenSettings = saveTokenSettings;
+            window.openGuideModal = openGuideModal;
+            window.closeGuideModal = closeGuideModal;
+            window.showSaveOptions = showSaveOptions;
+            window.hideSaveOptions = hideSaveOptions;
+            window.saveCharacter = saveCharacter;
+            window.selectCharacter = selectCharacter;
+            window.deleteCharacter = deleteCharacter;
+            window.resetCharacterToDefault = resetCharacterToDefault;
+            window.addCodeExpertCharacter = addCodeExpertCharacter;
+            window.openExpandEditor = openExpandEditor;
+            window.confirmExpandEditor = confirmExpandEditor;
+            window.cancelExpandEditor = cancelExpandEditor;
+            window.toggleThinking = toggleThinking;
+            window.toggleShowReasoning = toggleShowReasoning;
+            window.toggleCodeMode = toggleCodeMode;
+            window.handleCharacterAvatarUpload = handleCharacterAvatarUpload;
+            window.removeCharacterAvatar = removeCharacterAvatar;
+            window.handleCharacterBgUpload = handleCharacterBgUpload;
+            window.removeCharacterBg = removeCharacterBg;
+            window.updateBgPreview = updateBgPreview;
+            window.clearAttachment = clearAttachment; 
+            window.toggleCodeExec = toggleCodeExec;
+            init();
+        })();
+    </script>
+</body>
+</html>
