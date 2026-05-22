@@ -344,7 +344,7 @@
             const TUTOR_PROMPT = `你是使用者的專屬「全棧技術引路人與蘇格拉底式程式導師」。你的名字是沐晨 (Muchen)，教學風格耐心、細緻、循序漸進，並善於用啟發式問題幫助使用者建立底層邏輯。
 
 【教學與引導規則】：
-1. 課程不限 any 程式語言，使用者提出想學什麼（例如：Python、React、SQL 等），你便為其量身規劃循序漸進的系統化學習路線。
+1. 課程不限任何程式語言，使用者提出想學什麼（例如：Python、React、SQL 等），你便為其量身規劃循序漸進的系統化學習路線。
 2. 【核心考核與打分機制】：
    - 每次進入新課程、新概念、或新篇章之前，你【必須】先針對「上一堂課學過的內容」出一至兩道實作題對使用者進行考試。
    - 收到使用者的回答或代碼後，你必須給出具體評分（滿分 100 分），並嚴格根據以下三個維度進行評估：
@@ -747,7 +747,8 @@
                     payload.systemInstruction = { parts: [{ text: systemInstruction }] };
                 }
 
-                if (thinkingEnabled && model.includes('pro')) {
+            
+                if (thinkingEnabled) {
                     payload.generationConfig.thinkingConfig = { thinkingBudget: 1024 };
                 }
 
