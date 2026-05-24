@@ -405,7 +405,7 @@ body {
     background: #1e1e2e;
     color: #cdd6f4;
     padding: 14px;
-    padding-top: 40px;
+    padding-top: 48px;
     border-radius: var(--radius-md);
     overflow-x: auto;
     font-size: 13px;
@@ -418,10 +418,17 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.code-copy-btn {
+/* 頂部按鈕容器 */
+.pre-action-container {
     position: absolute;
     top: 8px;
     right: 8px;
+    display: flex;
+    gap: 6px;
+    z-index: 10;
+}
+
+.code-copy-btn, .code-preview-action-btn {
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.15);
     color: #a6adc8;
@@ -430,15 +437,25 @@ body {
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s;
-    z-index: 10;
     font-weight: 600;
     backdrop-filter: blur(4px);
 }
 
-.code-copy-btn:hover {
+.code-copy-btn:hover, .code-preview-action-btn:hover {
     background: rgba(255, 255, 255, 0.15);
     color: var(--white);
     transform: scale(0.95);
+}
+
+/* 預覽按鈕高亮 */
+.code-preview-action-btn {
+    background: rgba(79, 70, 229, 0.25);
+    border-color: rgba(129, 138, 248, 0.4);
+    color: #e0e7ff;
+}
+
+.code-preview-action-btn:hover {
+    background: rgba(79, 70, 229, 0.45);
 }
 
 .code-copy-btn.copied {
@@ -1128,6 +1145,111 @@ body {
 
 .highlight-text {
     color: var(--primary);
+}
+
+/* ==================== 實時預覽沙盒樣式 ==================== */
+.preview-modal-dialog {
+    background: #111827;
+    border-radius: var(--radius-lg);
+    width: 95vw;
+    height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: var(--shadow-xl);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.preview-modal-header {
+    background: #1f2937;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.preview-modal-title {
+    color: #f3f4f6;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.preview-device-selector {
+    display: flex;
+    background: #111827;
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.preview-device-btn {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.preview-device-btn.active {
+    background: var(--primary);
+    color: #ffffff;
+}
+
+.preview-close-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: none;
+    color: #9ca3af;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.preview-close-btn:hover {
+    background: #ef4444;
+    color: #ffffff;
+}
+
+.preview-iframe-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0f172a;
+    padding: 15px;
+    overflow: hidden;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.preview-iframe-wrapper iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 手機模擬器寬度限制 */
+.preview-iframe-wrapper.mobile-mode iframe {
+    width: 375px;
+    height: 100%;
+    max-height: 812px;
+    border: 10px solid #334155;
+    border-radius: 32px;
 }
 
 /* 輔助類別 */
