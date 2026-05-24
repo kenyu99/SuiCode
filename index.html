@@ -10,6 +10,45 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <title>🤖 隨隨小助手</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* 複數附檔預覽區優化樣式 */
+        .file-preview-box {
+            display: none;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.8);
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            max-height: 120px;
+            overflow-y: auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .file-chip {
+            display: inline-flex;
+            align-items: center;
+            background: #e1f5fe;
+            color: #0288d1;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 13px;
+            font-weight: 500;
+            gap: 6px;
+            border: 1px solid #b3e5fc;
+        }
+        .file-chip-delete {
+            background: none;
+            border: none;
+            color: #0288d1;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 0 2px;
+            font-size: 14px;
+        }
+        .file-chip-delete:hover {
+            color: #d32f2f;
+        }
+    </style>
 </head>
 <body>
 
@@ -59,11 +98,8 @@
         </div>
     </div>
     
-    <div id="file-preview-container" class="file-preview-box">
-        <span>📄</span>
-        <span id="file-preview-name">檔名.html</span>
-        <button type="button" onclick="clearAttachment()" class="file-clear-btn">✕</button>
-    </div>
+    <!-- 複數附檔預覽容器 -->
+    <div id="file-preview-container" class="file-preview-box"></div>
 
     <div class="input-bar">
         <button class="btn-icon btn-attach" onclick="triggerFileInput()" title="選擇檔案">📎</button>
@@ -690,7 +726,9 @@
             function clearChatMessages() {
                 chatArea.querySelectorAll('.bubble, .typing-indicator').forEach(b => b.remove());
                 if (welcomeMsg) welcomeMsg.style.display = '';
-                pendingFiles = []; textInput.value = ''; textInput.style.height = 'auto';
+                pendingFiles = []; 
+                updateFilePreviewUI();
+                textInput.value = ''; textInput.style.height = 'auto';
             }
 
             // ==================== API 設定 (Gemini 專武版) ====================
@@ -747,7 +785,6 @@
                     payload.systemInstruction = { parts: [{ text: systemInstruction }] };
                 }
 
-            
                 if (thinkingEnabled) {
                     payload.generationConfig.thinkingConfig = { thinkingBudget: 1024 };
                 }
@@ -760,13 +797,10 @@
                 const isProxyMode = cfg.proxyUrl && cfg.proxyUrl.trim().startsWith("http");
 
                 if (isProxyMode) {
-                    // 伺服器代理模式 (安全隱藏 Key)
                     let baseProxy = cfg.proxyUrl.trim();
-                    // 移除尾隨斜線以適應 Vercel 路由
                     if (baseProxy.endsWith("/")) baseProxy = baseProxy.slice(0, -1);
                     endpoint = `${baseProxy}?model=${model}`;
                 } else {
-                    // 本機直連模式
                     endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cfg.apiKey.trim()}`;
                 }
 
@@ -1102,19 +1136,25 @@
                 return marked.parse(md); 
             }
 
-            let pendingFiles = [];
+            // ==================== 複數附檔核心邏輯 ====================
+            let pendingFiles = []; // 全域儲存多個附檔
             function triggerFileInput() { fileInput.click(); }
             
             async function handleFilesSelected() {
                 const files = Array.from(fileInput.files);
                 if (!files.length) return;
-                pendingFiles = [];
                 
                 if (window.pdfjsLib) {
                     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
                 }
                 
                 for (const f of files) {
+                    // 檢查是否重複選取相同檔名的檔案
+                    if (pendingFiles.some(pf => pf.name === f.name)) {
+                        showToast(`已跳過重複檔案：${f.name}`);
+                        continue;
+                    }
+
                     const entry = { name: f.name, type: f.type, content: '', dataUrl: null };
                     
                     const codeExtensions = /\.(txt|csv|json|xml|html?|css|js|ts|md|py|java|cpp?|php|rb|go|rs|swift|kt|sh|ya?ml|toml|ini|log|sql)$/i;
@@ -1158,13 +1198,11 @@
                             
                             entry.content = result;
                             pendingFiles.push(entry);
-                            showToast(`已讀取試算表：${f.name} ✅`);
                             
                         } catch (err) {
                             console.error('SheetJS 讀取失敗：', err);
                             entry.content = `[無法讀取試算表檔案: ${f.name}，可能格式損壞]`;
                             pendingFiles.push(entry);
-                            showToast(`試算表讀取失敗：${f.name} ⚠️`);
                         }
                         
                     } else if (isPdfFile && window.pdfjsLib) {
@@ -1192,45 +1230,66 @@
                             
                             entry.content = result;
                             pendingFiles.push(entry);
-                            showToast(`已讀取 PDF：${f.name} ✅`);
                             
                         } catch (err) {
                             console.error('PDF 讀取失敗：', err);
                             entry.content = `[無法讀取 PDF 檔案: ${f.name}，可能格式損壞或加密]`;
                             pendingFiles.push(entry);
-                            showToast(`PDF 讀取失敗：${f.name} ⚠️`);
                         }
                         
                     } else if (f.type.startsWith('image/')) {
                         showToast('暫不支援圖片上傳 📷');
                         continue;
-                        
                     } else {
                         entry.content = `[無法讀取此類型檔案: ${f.name} (${f.type || '未知類型'})]`;
                         pendingFiles.push(entry);
                     }
                 }
 
-                if (pendingFiles.length === 0) {
-                    showToast('沒有可讀取的檔案 😢');
-                    fileInput.value = '';
-                    return;
-                }
-                
-                document.getElementById('file-preview-name').textContent = pendingFiles.map(f => f.name).join(', ');
-                document.getElementById('file-preview-container').style.display = 'flex';
                 fileInput.value = '';
+                updateFilePreviewUI();
                 textInput.focus();
-                showToast(`已選取 ${pendingFiles.length} 個檔案 ✅`);
             }
 
+            // 更新預覽 UI，動態渲染複數附檔晶片
+            function updateFilePreviewUI() {
+                const container = document.getElementById('file-preview-container');
+                if (pendingFiles.length === 0) {
+                    container.style.display = 'none';
+                    container.innerHTML = '';
+                    return;
+                }
+
+                let html = '';
+                pendingFiles.forEach((file, index) => {
+                    html += `
+                        <div class="file-chip">
+                            <span>📄 ${escapeHtml(file.name)}</span>
+                            <button class="file-chip-delete" onclick="removeSingleFile(${index})">✕</button>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+                container.style.display = 'flex';
+            }
+
+            // 刪除單個檔案
+            function removeSingleFile(index) {
+                if (index >= 0 && index < pendingFiles.length) {
+                    const removedName = pendingFiles[index].name;
+                    pendingFiles.splice(index, 1);
+                    updateFilePreviewUI();
+                    showToast(`已取消附檔：${removedName} ❌`);
+                }
+            }
+
+            // 清除所有附檔
             function clearAttachment() {
                 pendingFiles = []; 
-                document.getElementById('file-preview-container').style.display = 'none'; 
-                
+                updateFilePreviewUI();
                 const fileInput = document.getElementById('fileInput'); 
                 if (fileInput) fileInput.value = ''; 
-                showToast('已取消附檔 ❌'); 
+                showToast('已取消所有附檔 ❌'); 
             }
                         
             function readAsText(f) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsText(f); }); }
@@ -1249,7 +1308,6 @@
                 const hf = pendingFiles.length > 0;
                 if (!ut && !hf) { showToast('請輸入訊息或選擇檔案～'); return; }
 
-                // 奧丁角色預設強制開啟雲端測試
                 if (currentCharacterName === '奧丁' && !codeExecEnabled) {
                     const proceed = confirm('「奧丁」需要啟用「雲端測試」才可進行代碼驗證。是否立即開啟並繼續發送？');
                     if (proceed) {
@@ -1266,13 +1324,12 @@
                 textInput.value = ''; textInput.style.height = 'auto';
                 addTypingIndicator();
                 const fts = [...pendingFiles]; pendingFiles = [];
-                document.getElementById('file-preview-container').style.display = 'none';
+                updateFilePreviewUI();
 
                 try {
                     const cfg = getConfig();
                     const model = cfg.model || 'gemini-3.5-flash';
                     
-                    // 驗證金鑰或代理伺服器是否存在
                     const hasKey = cfg.apiKey && cfg.apiKey.trim().length > 0;
                     const hasProxy = cfg.proxyUrl && cfg.proxyUrl.trim().startsWith("http");
                     if (!hasKey && !hasProxy) throw new Error('請先設定 Gemini API 金鑰或代理伺服器網址');
@@ -1400,9 +1457,11 @@
             window.removeCharacterBg = removeCharacterBg;
             window.updateBgPreview = updateBgPreview;
             window.clearAttachment = clearAttachment; 
+            window.removeSingleFile = removeSingleFile; // 暴露單個檔案刪除方法
             window.toggleCodeExec = toggleCodeExec;
             init();
         })();
     </script>
 </body>
 </html>
+
