@@ -250,6 +250,23 @@
         </div>
     </div>
 
+    <!-- 實時網頁預覽沙盒彈窗 -->
+    <div class="modal-overlay hidden" id="previewModal">
+        <div class="preview-modal-dialog">
+            <div class="preview-modal-header">
+                <div class="preview-modal-title">👁️ 實時網頁預覽</div>
+                <div class="preview-device-selector">
+                    <button class="preview-device-btn active" id="btnDeviceDesktop" onclick="setPreviewDevice('desktop')">💻 電腦模式</button>
+                    <button class="preview-device-btn" id="btnDeviceMobile" onclick="setPreviewDevice('mobile')">📱 手機模式</button>
+                </div>
+                <button class="preview-close-btn" onclick="closeLivePreview()">✕</button>
+            </div>
+            <div class="preview-iframe-wrapper" id="previewIframeWrapper">
+                <iframe id="previewSandboxFrame" sandbox="allow-scripts allow-modals allow-same-origin"></iframe>
+            </div>
+        </div>
+    </div>
+
     <input type="file" id="fileInput" multiple accept="*/*" style="display:none" onchange="handleFilesSelected()">
     <script>
         (function() {
@@ -332,6 +349,13 @@
             const saveOptionsOverlay = document.getElementById('saveOptionsOverlay');
             const expandEditorModal = document.getElementById('expandEditorModal');
             const expandEditorText = document.getElementById('expandEditorText');
+
+            // 預覽相關 DOM
+            const previewModal = document.getElementById('previewModal');
+            const previewSandboxFrame = document.getElementById('previewSandboxFrame');
+            const previewIframeWrapper = document.getElementById('previewIframeWrapper');
+            const btnDeviceDesktop = document.getElementById('btnDeviceDesktop');
+            const btnDeviceMobile = document.getElementById('btnDeviceMobile');
 
             // ==================== 開關狀態 ====================
             const TOGGLE_STORAGE_KEY = 'lulu_toggle_settings';
@@ -1042,10 +1066,29 @@
                 setTimeout(() => { if (window.hljs) hljs.highlightAll(); }, 50);
             }
 
+            // 動態注入複製代碼與實時預覽按鈕
             function injectCodeCopyButtons(bubbleElement) {
                 bubbleElement.querySelectorAll('pre').forEach(pre => {
                     const codeEl = pre.querySelector('code');
                     if (codeEl) {
+                        const btnContainer = document.createElement('div');
+                        btnContainer.className = 'pre-action-container';
+
+                        // 判斷是否為可預覽的代碼格式 (HTML, SVG, XML)
+                        const classList = Array.from(codeEl.classList);
+                        const isHTML = classList.some(cls => ['language-html', 'language-xml', 'language-svg'].includes(cls));
+
+                        if (isHTML) {
+                            const previewBtn = document.createElement('button');
+                            previewBtn.className = 'code-preview-action-btn';
+                            previewBtn.textContent = '👁️ 實時預覽';
+                            previewBtn.onclick = (e) => {
+                                e.stopPropagation();
+                                openLivePreview(codeEl.innerText);
+                            };
+                            btnContainer.appendChild(previewBtn);
+                        }
+
                         const copyBtn = document.createElement('button');
                         copyBtn.className = 'code-copy-btn';
                         copyBtn.textContent = '📋 複製代碼';
@@ -1060,9 +1103,44 @@
                                 }, 2000);
                             });
                         };
-                        pre.appendChild(copyBtn);
+                        btnContainer.appendChild(copyBtn);
+                        pre.appendChild(btnContainer);
                     }
                 });
+            }
+
+            // ==================== 實時網頁預覽沙盒邏輯 ====================
+            function openLivePreview(rawCode) {
+                previewModal.classList.remove('hidden');
+                setPreviewDevice('desktop'); // 預設為電腦模式
+
+                // 建立沙盒渲染 document
+                const doc = previewSandboxFrame.contentWindow.document || previewSandboxFrame.contentDocument;
+                doc.open();
+                doc.write(rawCode);
+                doc.close();
+                showToast('預覽沙盒載入成功 👁️');
+            }
+
+            function closeLivePreview() {
+                previewModal.classList.add('hidden');
+                // 清空 iframe 內容防內存洩漏
+                const doc = previewSandboxFrame.contentWindow.document || previewSandboxFrame.contentDocument;
+                doc.open();
+                doc.write('');
+                doc.close();
+            }
+
+            function setPreviewDevice(device) {
+                if (device === 'mobile') {
+                    previewIframeWrapper.classList.add('mobile-mode');
+                    btnDeviceMobile.classList.add('active');
+                    btnDeviceDesktop.classList.remove('active');
+                } else {
+                    previewIframeWrapper.classList.remove('mobile-mode');
+                    btnDeviceDesktop.classList.add('active');
+                    btnDeviceMobile.classList.remove('active');
+                }
             }
 
             function addDownloadButton(container, md) {
@@ -1371,6 +1449,13 @@
                 else settingsModal.classList.add('hidden');
             }
 
+            // 點擊遮罩關閉預覽
+            previewModal.addEventListener('click', (e) => {
+                if (e.target === previewModal) {
+                    closeLivePreview();
+                }
+            });
+
             function saveSettings() {
                 const ak = apiKeyInput.value.trim();
                 const pu = proxyUrlInput.value.trim();
@@ -1457,8 +1542,11 @@
             window.removeCharacterBg = removeCharacterBg;
             window.updateBgPreview = updateBgPreview;
             window.clearAttachment = clearAttachment; 
-            window.removeSingleFile = removeSingleFile; // 暴露單個檔案刪除方法
+            window.removeSingleFile = removeSingleFile; 
             window.toggleCodeExec = toggleCodeExec;
+            window.openLivePreview = openLivePreview;
+            window.closeLivePreview = closeLivePreview;
+            window.setPreviewDevice = setPreviewDevice;
             init();
         })();
     </script>
