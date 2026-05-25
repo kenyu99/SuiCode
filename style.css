@@ -1252,6 +1252,88 @@ body {
     border-radius: 32px;
 }
 
+/* 複數附檔預覽區優化樣式 */
+  .file-preview-box {
+    display: none;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.8);
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    max-height: 120px;
+    overflow-y: auto;
+    width: 100%;
+    box-sizing: border-box;
+  }
+.file-chip {
+    display: inline-flex;
+    align-items: center;
+    background: #e1f5fe;
+    color: #0288d1;
+    padding: 4px 10px;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 500;
+    gap: 6px;
+    border: 1px solid #b3e5fc;
+  }
+.file-chip-delete {
+    background: none;
+    border: none;
+    color: #0288d1;
+    cursor: pointer;
+    font-weight: bold;
+    padding: 0 2px;
+    font-size: 14px;
+}
+.file-chip-delete:hover {
+    color: #d32f2f;
+  }
+
+/* 單條回覆刪除按鈕樣式 */
+.btn-delete-bubble {
+    background: rgba(239, 68, 68, 0.1);
+    border: none;
+    color: #ef4444;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+.btn-delete-bubble:hover {
+    background: #ef4444;
+    color: #ffffff;
+    transform: scale(1.05);
+  }
+.bubble.user .btn-delete-bubble {
+    background: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+  }
+.bubble.user .btn-delete-bubble:hover {
+    background: #ef4444;
+  }
+
+/* 泡泡動畫：淡出刪除 */
+.bubble.deleting {
+    animation: bubbleFadeOut 0.3s cubic-bezier(0.4, 0, 1, 1) forwards !important;
+  }
+@keyframes bubbleFadeOut {
+    to {
+        opacity: 0;
+        transform: scale(0.9) translateY(-10px);
+        max-height: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        margin-top: 0;
+        margin-bottom: 0;
+      }
+  }
+
 /* 輔助類別 */
 .w-full { width: 100% !important; }
 .mt-1 { margin-top: 4px !important; }
@@ -1264,3 +1346,4 @@ body {
 
 @keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(-20px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
 @keyframes toastOut { from { opacity:1; } to { opacity:0; transform:translateX(-50%) translateY(-10px); } }
+
