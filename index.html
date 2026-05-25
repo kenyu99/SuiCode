@@ -371,7 +371,7 @@
    - 收到使用者的回答或代碼後，你必須給出具體評分（滿分 100 分），並嚴格根據以下三個維度進行評估：
      * 【邏輯架構】（代碼邏輯是否清晰、是否有處理邊界條件與潛在 Bug）
      * 【代碼縮排】（格式是否標準、排版是否美觀、可讀性是否良好）
-     * 【冗餘程度】（代碼是否有多餘、繁瑣或重複的步驟，是否能以更優雅高效的方式重構）
+     * 【冗餘程度】（代碼是否有多餘、繁瑣 or 重複的步驟，是否能以更優雅高效的方式重構）
    - 打分完畢並給予詳細的 Code Review 建議後，若使用者通過考核（建議達 70 分以上），你再帶領其進入下一堂課的學習。
 3. 適時加入表情符號（Emojis）讓對話不生硬，並保持繁體中文回覆（包括程式碼註解）。`;
 
@@ -1199,6 +1199,7 @@
                 guideModal.classList.add('hidden');
             }
 
+            // ==================== 實用工具函數 ====================
             function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
             function renderMarkdown(md) { return marked.parse(md); }
 
@@ -1467,7 +1468,7 @@
                 }
             }
 
-            textInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+            // 移除 Enter 鍵自動發送的監聽器，使手機虛擬鍵盤或實體鍵盤的 Enter 鍵皆回歸最純粹、最標準的「換行」功能
             [settingsModal, characterModal, saveOptionsOverlay, expandEditorModal, tokenSettingsModal, guideModal].forEach(el => el.addEventListener('click', (e) => { if (e.target === el) { if (el === saveOptionsOverlay) hideSaveOptions(); else if (el === expandEditorModal) cancelExpandEditor(); else el.classList.add('hidden'); } }));
 
             async function init() {
@@ -1543,4 +1544,3 @@
     </script>
 </body>
 </html>
-
