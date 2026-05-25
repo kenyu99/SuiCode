@@ -378,7 +378,7 @@
             const CODER_PROMPT = `你是使用者的專屬代碼實踐者與首席架構師「奧丁 (Odin)」。你的唯一任務是根據使用者的需求，產出極致、高品質、可執行的完整程式碼。
 
 核心原則：
-* 直接給出完整的程式碼，不需要任何教學、解釋、前言或後續建議（除非使用者明確要求）。
+* 直接給出完整的程式碼，不需要任何教學、解釋、前言 or 後續建議（除非使用者明確要求）。
 * 如果使用者的描述不夠清楚，用最簡短的方式確認需求，然後立刻給出程式碼。
 * 你可以在給出的程式碼中加入你自己的優化方案，但不要另外用文字說明你優化了什麼，讓程式碼本身說話。
 * 回覆時使用繁體中文，程式碼註解也盡量用繁體中文。
@@ -482,7 +482,6 @@
                 } else {
                     hideWelcome();
                     messages.forEach((m, idx) => {
-                        // 這裡傳入歷史記錄對應的索引值 (歷史記錄從索引 1 開始)
                         if (m.role === 'user') addUserBubbleFromHistory(m.content, idx + 1);
                         else addAIBubble(m.content, idx + 1);
                     });
@@ -840,7 +839,6 @@
             // ==================== 物理刪除特定對話歷史 ====================
             function confirmDeleteBubble(element, historyIndex) {
                 if (historyIndex === 0) {
-                    // 開場白不計入 conversationHistory，僅做 UI 刪除
                     if (confirm('確定要刪除這條開場白回覆嗎？')) {
                         element.classList.add('deleting');
                         setTimeout(() => {
@@ -856,42 +854,67 @@
                 if (confirm('確定要永久刪除這條對話紀錄嗎？（此動作將同步從 AI 上下文與本地歷史紀錄中移除）')) {
                     element.classList.add('deleting');
                     setTimeout(() => {
-                        // 從歷史紀錄中移除特定元素
                         if (historyIndex > 0 && historyIndex < conversationHistory.length) {
                             conversationHistory.splice(historyIndex, 1);
                             saveChatHistory();
                             showToast('已成功從歷史紀錄中刪除 🗑️');
                         }
-                        
-                        // 重新構建對話 UI，確保剩餘泡泡的索引值完全對齊
                         rebuildChatFromHistory(conversationHistory.slice(1));
                     }, 300);
                 }
             }
 
-            function addUserBubble(text, fns = [], historyIndex) {
+            // 解析歷史/目前使用者訊息中的檔案區塊與純文字
+            function parseUserMessageContent(rawContent) {
+                let text = '';
+                if (Array.isArray(rawContent)) {
+                    text = rawContent.filter(c => c.type === 'text').map(c => c.text).join('\n');
+                } else if (typeof rawContent === 'string') {
+                    text = rawContent;
+                }
+
+                const filePattern = /檔案【(.+?)】：\n```[\s\S]*?\n```/g;
+                let fileNames = [];
+                let cleanText = text.replace(filePattern, (match, fileName) => {
+                    fileNames.push(fileName);
+                    return '';
+                }).replace(/\n{3,}/g, '\n\n').trim();
+
+                return { cleanText, fileNames };
+            }
+
+            // 統一使用者對話泡泡生成邏輯 (採用更穩固的 DOM 切換架構)
+            function renderUserBubbleElement(cleanText, fileNames, historyIndex) {
                 hideWelcome();
                 const b = document.createElement('div');
                 b.className = 'bubble user';
                 b.setAttribute('data-idx', historyIndex);
-                
-                let fullText = text;
-                if (fns.length) {
-                    fullText += '\n' + fns.join(', ');
-                }
-                
+
+                const hasFiles = fileNames.length > 0;
+                const needsCollapse = cleanText.length > 50;
+
                 let bubbleBody = '';
-                if (fullText.length > 50) {
-                    let preview = escapeHtml(fullText.substring(0, 25)) + '...';
-                    bubbleBody = '<div class="collapsed-preview">' + preview + '</div>' +
-                        '<button class="btn-expand-collapse" style="margin-top:6px; font-size:11px; background:rgba(255,255,255,0.25); border:none; color:#fff; padding:4px 12px; border-radius:12px; cursor:pointer; width:100%;">🔽 展開完整內容</button>';
+                if (needsCollapse) {
+                    const previewText = cleanText.substring(0, 25) + '...';
+                    bubbleBody = `
+                        <div class="user-content-wrapper collapsed">
+                            <div class="short-version">${escapeHtml(previewText)}</div>
+                            <div class="full-version" style="display:none;">${escapeHtml(cleanText).replace(/\n/g, '<br>')}</div>
+                        </div>
+                        <button class="btn-expand-collapse" style="margin-top:6px; font-size:11px; background:rgba(255,255,255,0.25); border:none; color:#fff; padding:4px 12px; border-radius:12px; cursor:pointer; width:100%;">🔽 展開完整內容</button>
+                    `;
                 } else {
-                    if (fns.length) {
-                        bubbleBody += fns.map(f => `<span class="file-tag">📄 ${escapeHtml(f)}</span>`).join(' ');
-                        if (text) bubbleBody += '<br>' + escapeHtml(text);
-                    } else {
-                        bubbleBody += escapeHtml(text);
+                    if (cleanText) {
+                        bubbleBody += `<div>${escapeHtml(cleanText).replace(/\n/g, '<br>')}</div>`;
                     }
+                }
+
+                if (hasFiles) {
+                    bubbleBody += `<div style="margin-top:6px; display:flex; flex-wrap:wrap; gap:4px;">${fileNames.map(f => `<span class="file-tag">📄 ${escapeHtml(f)}</span>`).join('')}</div>`;
+                }
+
+                if (!cleanText && !hasFiles) {
+                    bubbleBody += '<div>(空訊息)</div>';
                 }
 
                 b.innerHTML = `
@@ -902,100 +925,40 @@
                     </div>
                 `;
 
-                if (fullText.length > 50) {
+                if (needsCollapse) {
                     const btn = b.querySelector('.btn-expand-collapse');
+                    const wrapper = b.querySelector('.user-content-wrapper');
+                    const shortVer = b.querySelector('.short-version');
+                    const fullVer = b.querySelector('.full-version');
+
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        const isExpanded = btn.textContent.includes('收起');
-                        if (isExpanded) {
-                            b.querySelector('.collapsed-preview').innerHTML = escapeHtml(fullText.substring(0, 25)) + '...';
-                            b.querySelector('.collapsed-preview').classList.remove('expanded');
-                            btn.textContent = '🔽 展開完整內容';
-                        } else {
-                            b.querySelector('.collapsed-preview').innerHTML = escapeHtml(fullText).replace(/\n/g, '<br>');
-                            b.querySelector('.collapsed-preview').classList.add('expanded');
+                        if (wrapper.classList.contains('collapsed')) {
+                            wrapper.classList.remove('collapsed');
+                            shortVer.style.display = 'none';
+                            fullVer.style.display = 'block';
                             btn.textContent = '🔼 收起';
+                        } else {
+                            wrapper.classList.add('collapsed');
+                            shortVer.style.display = 'block';
+                            fullVer.style.display = 'none';
+                            btn.textContent = '🔽 展開完整內容';
                         }
                     });
                 }
-                
+
+                return b;
+            }
+
+            function addUserBubble(text, fileNames = [], historyIndex) {
+                const b = renderUserBubbleElement(text, fileNames, historyIndex);
                 chatArea.appendChild(b);
                 scrollToBottom();
             }
 
             function addUserBubbleFromHistory(content, historyIndex) {
-                hideWelcome();
-                const b = document.createElement('div');
-                b.className = 'bubble user';
-                b.setAttribute('data-idx', historyIndex);
-                
-                let rawText = '';
-                if (Array.isArray(content)) {
-                    rawText = content.filter(c => c.type === 'text').map(c => c.text).join('\n');
-                } else if (typeof content === 'string') {
-                    rawText = content;
-                }
-                
-                const filePattern = /檔案【(.+?)】：\n```[\s\S]*?```/g;
-                let fileNames = [];
-                let cleanText = rawText;
-                
-                cleanText = cleanText.replace(filePattern, (match, fileName) => {
-                    fileNames.push(fileName);
-                    return ''; 
-                });
-                
-                cleanText = cleanText.replace(/\n{3,}/g, '\n\n').trim();
-                
-                let fullDisplay = cleanText;
-                if (fileNames.length > 0) {
-                    fullDisplay += (fullDisplay ? '\n' : '') + '📎 已附檔案：' + fileNames.join(', ');
-                }
-                
-                const needsCollapse = fullDisplay.length > 50;
-                let bubbleBody = '';
-
-                if (needsCollapse) {
-                    let preview = escapeHtml(fullDisplay.substring(0, 25)) + '...';
-                    bubbleBody = '<div class="collapsed-preview">' + preview + '</div>' +
-                        '<button class="btn-expand-collapse" style="margin-top:6px; font-size:11px; background:rgba(255,255,255,0.25); border:none; color:#fff; padding:4px 12px; border-radius:12px; cursor:pointer; width:100%;">🔽 展開完整內容</button>';
-                } else {
-                    if (cleanText) {
-                        bubbleBody += '<div>' + escapeHtml(cleanText).replace(/\n/g, '<br>') + '</div>';
-                    }
-                    if (fileNames.length > 0) {
-                        bubbleBody += '<div style="margin-top:6px;">' + fileNames.map(f => `<span class="file-tag">📄 ${escapeHtml(f)}</span>`).join(' ') + '</div>';
-                    }
-                    if (!cleanText && fileNames.length === 0) {
-                        bubbleBody += '<div>(訊息)</div>';
-                    }
-                }
-
-                b.innerHTML = `
-                    <div class="label">🧑‍💻 你</div>
-                    ${bubbleBody}
-                    <div class="bubble-actions" style="margin-top: 8px; display: flex; justify-content: flex-end;">
-                        <button class="btn-delete-bubble" onclick="confirmDeleteBubble(this.closest('.bubble'), ${historyIndex})">🗑️ 刪除</button>
-                    </div>
-                `;
-
-                if (needsCollapse) {
-                    const btn = b.querySelector('.btn-expand-collapse');
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const isExpanded = btn.textContent.includes('收起');
-                        if (isExpanded) {
-                            b.querySelector('.collapsed-preview').innerHTML = escapeHtml(fullDisplay.substring(0, 25)) + '...';
-                            b.querySelector('.collapsed-preview').classList.remove('expanded');
-                            btn.textContent = '🔽 展開完整內容';
-                        } else {
-                            b.querySelector('.collapsed-preview').innerHTML = escapeHtml(fullDisplay).replace(/\n/g, '<br>');
-                            b.querySelector('.collapsed-preview').classList.add('expanded');
-                            btn.textContent = '🔼 收起';
-                        }
-                    });
-                }
-                
+                const { cleanText, fileNames } = parseUserMessageContent(content);
+                const b = renderUserBubbleElement(cleanText, fileNames, historyIndex);
                 chatArea.appendChild(b);
             }
             
@@ -1025,6 +988,7 @@
                 expandEditorModal.classList.remove('hidden');
             }
             
+            // 統一 AI 對話泡泡生成邏輯 (全面改為 DOM 切換架構，徹底解決收回失效問題)
             function addAIBubble(md, historyIndex) {
                 hideWelcome();
                 const b = document.createElement('div');
@@ -1036,13 +1000,18 @@
                 let bubbleBody = '';
 
                 if (shouldCollapse) {
-                    let plainPreview = md.substring(0, 25).replace(/\n/g, '<br>');
+                    let plainPreview = md.substring(0, 25).replace(/\n/g, ' ');
                     plainPreview = escapeHtml(plainPreview) + '...';
                     
-                    bubbleBody = '<div class="collapsed-preview">' + plainPreview + '</div>' +
-                        '<button class="btn-expand-collapse" style="margin-top:6px; font-size:12px; background:var(--primary-pale); border:1px solid var(--primary-soft); color:var(--primary-text); padding:4px 12px; border-radius:12px; cursor:pointer; width:100%;">🔽 展開完整內容</button>';
+                    bubbleBody = `
+                        <div class="ai-content-wrapper collapsed">
+                            <div class="short-version" style="color: var(--text-muted); font-style: italic;">${plainPreview}</div>
+                            <div class="full-version" style="display:none;">${renderMarkdown(md)}</div>
+                        </div>
+                        <button class="btn-expand-collapse" style="margin-top:6px; font-size:12px; background:var(--primary-pale); border:1px solid var(--primary-soft); color:var(--primary-text); padding:4px 12px; border-radius:12px; cursor:pointer; width:100%;">🔽 展開完整內容</button>
+                    `;
                 } else {
-                    bubbleBody = renderMarkdown(md);
+                    bubbleBody = `<div class="ai-content-wrapper"><div class="full-version">${renderMarkdown(md)}</div></div>`;
                 }
 
                 b.innerHTML = `
@@ -1055,22 +1024,27 @@
 
                 if (shouldCollapse) {
                     const btn = b.querySelector('.btn-expand-collapse');
+                    const wrapper = b.querySelector('.ai-content-wrapper');
+                    const shortVer = b.querySelector('.short-version');
+                    const fullVer = b.querySelector('.full-version');
+
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        const isExpanded = btn.textContent.includes('收起');
-                        if (isExpanded) {
-                            b.querySelector('.collapsed-preview').innerHTML = plainPreview;
-                            btn.textContent = '🔽 展開完整內容';
-                        } else {
-                            b.querySelector('.collapsed-preview').innerHTML = renderMarkdown(md);
-                            injectCodeCopyButtons(b);
+                        if (wrapper.classList.contains('collapsed')) {
+                            wrapper.classList.remove('collapsed');
+                            shortVer.style.display = 'none';
+                            fullVer.style.display = 'block';
                             btn.textContent = '🔼 收起';
-                            setTimeout(() => { if (window.hljs) hljs.highlightAll(); }, 50);
+                        } else {
+                            wrapper.classList.add('collapsed');
+                            shortVer.style.display = 'block';
+                            fullVer.style.display = 'none';
+                            btn.textContent = '🔽 展開完整內容';
                         }
                     });
-                } else {
-                    injectCodeCopyButtons(b);
                 }
+
+                injectCodeCopyButtons(b);
                 
                 const actions = b.querySelector('.bubble-actions');
                 addDownloadButton(actions, md);
@@ -1095,7 +1069,6 @@
                         const btnContainer = document.createElement('div');
                         btnContainer.className = 'pre-action-container';
 
-                        // 判斷是否為可預覽的代碼格式 (HTML, SVG, XML)
                         const classList = Array.from(codeEl.classList);
                         const isHTML = classList.some(cls => ['language-html', 'language-xml', 'language-svg'].includes(cls));
 
@@ -1133,9 +1106,8 @@
             // ==================== 實時網頁預覽沙盒邏輯 ====================
             function openLivePreview(rawCode) {
                 previewModal.classList.remove('hidden');
-                setPreviewDevice('desktop'); // 預設為電腦模式
+                setPreviewDevice('desktop');
 
-                // 建立沙盒渲染 document
                 const doc = previewSandboxFrame.contentWindow.document || previewSandboxFrame.contentDocument;
                 doc.open();
                 doc.write(rawCode);
@@ -1145,7 +1117,6 @@
 
             function closeLivePreview() {
                 previewModal.classList.add('hidden');
-                // 清空 iframe 內容防內存洩漏
                 const doc = previewSandboxFrame.contentWindow.document || previewSandboxFrame.contentDocument;
                 doc.open();
                 doc.write('');
@@ -1208,7 +1179,6 @@
                 }
             }
 
-            // 更新預覽值
             function updateTokenValue(val) {
                 maxTokensValue.textContent = val;
             }
@@ -1230,13 +1200,10 @@
             }
 
             function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
-            function renderMarkdown(md) {
-                return marked.parse(md); 
-            }
+            function renderMarkdown(md) { return marked.parse(md); }
 
             // ==================== 複數附檔核心邏輯 ====================
-            let pendingFiles = []; // 全域儲存多個附檔
+            let pendingFiles = [];
             function triggerFileInput() { fileInput.click(); }
             
             async function handleFilesSelected() {
@@ -1248,7 +1215,6 @@
                 }
                 
                 for (const f of files) {
-                    // 檢查是否重複選取相同檔名的檔案
                     if (pendingFiles.some(pf => pf.name === f.name)) {
                         showToast(`已跳過重複檔案：${f.name}`);
                         continue;
@@ -1350,7 +1316,6 @@
                 textInput.focus();
             }
 
-            // 更新預覽 UI，動態渲染複數附檔晶片
             function updateFilePreviewUI() {
                 const container = document.getElementById('file-preview-container');
                 if (pendingFiles.length === 0) {
@@ -1372,7 +1337,6 @@
                 container.style.display = 'flex';
             }
 
-            // 刪除單個檔案
             function removeSingleFile(index) {
                 if (index >= 0 && index < pendingFiles.length) {
                     const removedName = pendingFiles[index].name;
@@ -1382,7 +1346,6 @@
                 }
             }
 
-            // 清除所有附檔
             function clearAttachment() {
                 pendingFiles = []; 
                 updateFilePreviewUI();
@@ -1420,9 +1383,8 @@
 
                 btnSend.disabled = true;
                 
-                // 預先計算此訊息加入歷史紀錄後的索引值
                 const nextHistoryIndex = conversationHistory.length;
-                addUserBubble(ut || '(傳送檔案)', pendingFiles.map(f => f.name), nextHistoryIndex);
+                addUserBubble(ut, pendingFiles.map(f => f.name), nextHistoryIndex);
                 
                 textInput.value = ''; textInput.style.height = 'auto';
                 addTypingIndicator();
@@ -1454,13 +1416,12 @@
                     
                     removeTypingIndicator();
                     
-                    // 計算 AI 回覆的歷史索引
                     const aiHistoryIndex = conversationHistory.length;
                     addAIBubble(reply, aiHistoryIndex);
                     
                     conversationHistory.push({ role: 'assistant', content: reply });
                     if (conversationHistory.length > 42) {
-                        conversationHistory = [{ role: 'system', content: currentSystemPrompt }, ...conversationHistory.slice(-40)];
+                        conversationHistory = [{ role: 'system', content: currentSystemPrompt }, ...conversationHistory.slice(-20)];
                     }
                     saveChatHistory();
 
@@ -1479,7 +1440,6 @@
                 else settingsModal.classList.add('hidden');
             }
 
-            // 點擊遮罩關閉預覽
             previewModal.addEventListener('click', (e) => {
                 if (e.target === previewModal) {
                     closeLivePreview();
@@ -1577,7 +1537,7 @@
             window.openLivePreview = openLivePreview;
             window.closeLivePreview = closeLivePreview;
             window.setPreviewDevice = setPreviewDevice;
-            window.confirmDeleteBubble = confirmDeleteBubble; // 暴露物理刪除方法
+            window.confirmDeleteBubble = confirmDeleteBubble;
             init();
         })();
     </script>
