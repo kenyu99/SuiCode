@@ -1421,7 +1421,7 @@
                     
                     conversationHistory.push({ role: 'assistant', content: reply });
                     if (conversationHistory.length > 42) {
-                        conversationHistory = [{ role: 'system', content: currentSystemPrompt }, ...conversationHistory.slice(-20)];
+                        conversationHistory = [{ role: 'system', content: currentSystemPrompt }, ...conversationHistory.slice(-40)];
                     }
                     saveChatHistory();
 
