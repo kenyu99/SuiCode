@@ -10,45 +10,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <title>🤖 隨隨小助手</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        /* 複數附檔預覽區優化樣式 */
-        .file-preview-box {
-            display: none;
-            flex-wrap: wrap;
-            gap: 8px;
-            padding: 10px 14px;
-            background: rgba(255, 255, 255, 0.8);
-            border-top: 1px solid rgba(0, 0, 0, 0.05);
-            max-height: 120px;
-            overflow-y: auto;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .file-chip {
-            display: inline-flex;
-            align-items: center;
-            background: #e1f5fe;
-            color: #0288d1;
-            padding: 4px 10px;
-            border-radius: 16px;
-            font-size: 13px;
-            font-weight: 500;
-            gap: 6px;
-            border: 1px solid #b3e5fc;
-        }
-        .file-chip-delete {
-            background: none;
-            border: none;
-            color: #0288d1;
-            cursor: pointer;
-            font-weight: bold;
-            padding: 0 2px;
-            font-size: 14px;
-        }
-        .file-chip-delete:hover {
-            color: #d32f2f;
-        }
-    </style>
 </head>
 <body>
 
@@ -516,13 +477,14 @@
             function rebuildChatFromHistory(messages) {
                 chatArea.querySelectorAll('.bubble, .typing-indicator').forEach(b => b.remove());
                 if (messages.length === 0) {
-                    if (currentFirstMessage) { hideWelcome(); addAIBubble(currentFirstMessage); }
+                    if (currentFirstMessage) { hideWelcome(); addAIBubble(currentFirstMessage, 0); }
                     else { if (welcomeMsg) welcomeMsg.style.display = ''; }
                 } else {
                     hideWelcome();
-                    messages.forEach(m => {
-                        if (m.role === 'user') addUserBubbleFromHistory(m.content);
-                        else addAIBubble(m.content);
+                    messages.forEach((m, idx) => {
+                        // 這裡傳入歷史記錄對應的索引值 (歷史記錄從索引 1 開始)
+                        if (m.role === 'user') addUserBubbleFromHistory(m.content, idx + 1);
+                        else addAIBubble(m.content, idx + 1);
                     });
                 }
                 scrollToBottom();
@@ -772,7 +734,7 @@
                         clearCurrentChatHistory();
                         conversationHistory = [{ role: 'system', content: currentSystemPrompt }];
                         clearChatMessages();
-                        if (currentFirstMessage) { hideWelcome(); addAIBubble(currentFirstMessage); }
+                        if (currentFirstMessage) { hideWelcome(); addAIBubble(currentFirstMessage, 0); }
                         showToast('新對話開始囉～ 🌸');
                     }
                 } else showToast('已經是新的對話啦～ ✨');
@@ -875,28 +837,78 @@
             function hideWelcome() { if (welcomeMsg && welcomeMsg.style.display !== 'none') welcomeMsg.style.display = 'none'; }
             function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 100) + 'px'; }
 
-            function addUserBubble(text, fns = []) {
+            // ==================== 物理刪除特定對話歷史 ====================
+            function confirmDeleteBubble(element, historyIndex) {
+                if (historyIndex === 0) {
+                    // 開場白不計入 conversationHistory，僅做 UI 刪除
+                    if (confirm('確定要刪除這條開場白回覆嗎？')) {
+                        element.classList.add('deleting');
+                        setTimeout(() => {
+                            element.remove();
+                            if (chatArea.querySelectorAll('.bubble').length === 0) {
+                                if (welcomeMsg) welcomeMsg.style.display = '';
+                            }
+                        }, 300);
+                    }
+                    return;
+                }
+
+                if (confirm('確定要永久刪除這條對話紀錄嗎？（此動作將同步從 AI 上下文與本地歷史紀錄中移除）')) {
+                    element.classList.add('deleting');
+                    setTimeout(() => {
+                        // 從歷史紀錄中移除特定元素
+                        if (historyIndex > 0 && historyIndex < conversationHistory.length) {
+                            conversationHistory.splice(historyIndex, 1);
+                            saveChatHistory();
+                            showToast('已成功從歷史紀錄中刪除 🗑️');
+                        }
+                        
+                        // 重新構建對話 UI，確保剩餘泡泡的索引值完全對齊
+                        rebuildChatFromHistory(conversationHistory.slice(1));
+                    }, 300);
+                }
+            }
+
+            function addUserBubble(text, fns = [], historyIndex) {
                 hideWelcome();
                 const b = document.createElement('div');
                 b.className = 'bubble user';
+                b.setAttribute('data-idx', historyIndex);
                 
                 let fullText = text;
                 if (fns.length) {
                     fullText += '\n' + fns.join(', ');
                 }
                 
+                let bubbleBody = '';
                 if (fullText.length > 50) {
-                    let preview = escapeHtml(fullText.substring(0, 10)) + '...';
-                    b.innerHTML = '<div class="label">🧑‍💻 你</div>' +
-                        '<div class="collapsed-preview">' + preview + '</div>' +
+                    let preview = escapeHtml(fullText.substring(0, 25)) + '...';
+                    bubbleBody = '<div class="collapsed-preview">' + preview + '</div>' +
                         '<button class="btn-expand-collapse" style="margin-top:6px; font-size:11px; background:rgba(255,255,255,0.25); border:none; color:#fff; padding:4px 12px; border-radius:12px; cursor:pointer; width:100%;">🔽 展開完整內容</button>';
-                    
+                } else {
+                    if (fns.length) {
+                        bubbleBody += fns.map(f => `<span class="file-tag">📄 ${escapeHtml(f)}</span>`).join(' ');
+                        if (text) bubbleBody += '<br>' + escapeHtml(text);
+                    } else {
+                        bubbleBody += escapeHtml(text);
+                    }
+                }
+
+                b.innerHTML = `
+                    <div class="label">🧑‍💻 你</div>
+                    ${bubbleBody}
+                    <div class="bubble-actions" style="margin-top: 8px; display: flex; justify-content: flex-end;">
+                        <button class="btn-delete-bubble" onclick="confirmDeleteBubble(this.closest('.bubble'), ${historyIndex})">🗑️ 刪除</button>
+                    </div>
+                `;
+
+                if (fullText.length > 50) {
                     const btn = b.querySelector('.btn-expand-collapse');
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         const isExpanded = btn.textContent.includes('收起');
                         if (isExpanded) {
-                            b.querySelector('.collapsed-preview').innerHTML = preview;
+                            b.querySelector('.collapsed-preview').innerHTML = escapeHtml(fullText.substring(0, 25)) + '...';
                             b.querySelector('.collapsed-preview').classList.remove('expanded');
                             btn.textContent = '🔽 展開完整內容';
                         } else {
@@ -905,25 +917,17 @@
                             btn.textContent = '🔼 收起';
                         }
                     });
-                } else {
-                    let h = '<div class="label">🧑‍💻 你</div>';
-                    if (fns.length) {
-                        h += fns.map(f => `<span class="file-tag">📄 ${escapeHtml(f)}</span>`).join(' ');
-                        if (text) h += '<br>' + escapeHtml(text);
-                    } else {
-                        h += escapeHtml(text);
-                    }
-                    b.innerHTML = h;
                 }
                 
                 chatArea.appendChild(b);
                 scrollToBottom();
             }
 
-            function addUserBubbleFromHistory(content) {
+            function addUserBubbleFromHistory(content, historyIndex) {
                 hideWelcome();
                 const b = document.createElement('div');
                 b.className = 'bubble user';
+                b.setAttribute('data-idx', historyIndex);
                 
                 let rawText = '';
                 if (Array.isArray(content)) {
@@ -949,19 +953,39 @@
                 }
                 
                 const needsCollapse = fullDisplay.length > 50;
-                
+                let bubbleBody = '';
+
                 if (needsCollapse) {
-                    let preview = escapeHtml(fullDisplay.substring(0, 10)) + '...';
-                    b.innerHTML = '<div class="label">🧑‍💻 你</div>' +
-                        '<div class="collapsed-preview">' + preview + '</div>' +
+                    let preview = escapeHtml(fullDisplay.substring(0, 25)) + '...';
+                    bubbleBody = '<div class="collapsed-preview">' + preview + '</div>' +
                         '<button class="btn-expand-collapse" style="margin-top:6px; font-size:11px; background:rgba(255,255,255,0.25); border:none; color:#fff; padding:4px 12px; border-radius:12px; cursor:pointer; width:100%;">🔽 展開完整內容</button>';
-                    
+                } else {
+                    if (cleanText) {
+                        bubbleBody += '<div>' + escapeHtml(cleanText).replace(/\n/g, '<br>') + '</div>';
+                    }
+                    if (fileNames.length > 0) {
+                        bubbleBody += '<div style="margin-top:6px;">' + fileNames.map(f => `<span class="file-tag">📄 ${escapeHtml(f)}</span>`).join(' ') + '</div>';
+                    }
+                    if (!cleanText && fileNames.length === 0) {
+                        bubbleBody += '<div>(訊息)</div>';
+                    }
+                }
+
+                b.innerHTML = `
+                    <div class="label">🧑‍💻 你</div>
+                    ${bubbleBody}
+                    <div class="bubble-actions" style="margin-top: 8px; display: flex; justify-content: flex-end;">
+                        <button class="btn-delete-bubble" onclick="confirmDeleteBubble(this.closest('.bubble'), ${historyIndex})">🗑️ 刪除</button>
+                    </div>
+                `;
+
+                if (needsCollapse) {
                     const btn = b.querySelector('.btn-expand-collapse');
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         const isExpanded = btn.textContent.includes('收起');
                         if (isExpanded) {
-                            b.querySelector('.collapsed-preview').innerHTML = preview;
+                            b.querySelector('.collapsed-preview').innerHTML = escapeHtml(fullDisplay.substring(0, 25)) + '...';
                             b.querySelector('.collapsed-preview').classList.remove('expanded');
                             btn.textContent = '🔽 展開完整內容';
                         } else {
@@ -970,18 +994,6 @@
                             btn.textContent = '🔼 收起';
                         }
                     });
-                } else {
-                    let displayHtml = '<div class="label">🧑‍💻 你</div>';
-                    if (cleanText) {
-                        displayHtml += '<div>' + escapeHtml(cleanText).replace(/\n/g, '<br>') + '</div>';
-                    }
-                    if (fileNames.length > 0) {
-                        displayHtml += '<div style="margin-top:6px;">' + fileNames.map(f => `<span class="file-tag">📄 ${escapeHtml(f)}</span>`).join(' ') + '</div>';
-                    }
-                    if (!cleanText && fileNames.length === 0) {
-                        displayHtml += '<div>(訊息)</div>';
-                    }
-                    b.innerHTML = displayHtml;
                 }
                 
                 chatArea.appendChild(b);
@@ -1013,22 +1025,35 @@
                 expandEditorModal.classList.remove('hidden');
             }
             
-            function addAIBubble(md) {
+            function addAIBubble(md, historyIndex) {
                 hideWelcome();
                 const b = document.createElement('div');
                 b.className = 'bubble ai';
+                b.setAttribute('data-idx', historyIndex);
                 const labelHtml = `<div class="label">${currentAvatarImgId ? '<img class="label-avatar" id="labelAvatarImg" src="">' : ''} ${currentCharacterName}</div>`;
                 
                 const shouldCollapse = md.length > 100;
-                
+                let bubbleBody = '';
+
                 if (shouldCollapse) {
-                    let plainPreview = md.substring(0, 10).replace(/\n/g, '<br>');
+                    let plainPreview = md.substring(0, 25).replace(/\n/g, '<br>');
                     plainPreview = escapeHtml(plainPreview) + '...';
                     
-                    b.innerHTML = labelHtml +
-                        '<div class="collapsed-preview">' + plainPreview + '</div>' +
+                    bubbleBody = '<div class="collapsed-preview">' + plainPreview + '</div>' +
                         '<button class="btn-expand-collapse" style="margin-top:6px; font-size:12px; background:var(--primary-pale); border:1px solid var(--primary-soft); color:var(--primary-text); padding:4px 12px; border-radius:12px; cursor:pointer; width:100%;">🔽 展開完整內容</button>';
-                    
+                } else {
+                    bubbleBody = renderMarkdown(md);
+                }
+
+                b.innerHTML = `
+                    ${labelHtml}
+                    ${bubbleBody}
+                    <div class="bubble-actions" style="margin-top: 8px; display: flex; justify-content: flex-end; gap: 6px;">
+                        <button class="btn-delete-bubble" onclick="confirmDeleteBubble(this.closest('.bubble'), ${historyIndex})">🗑️ 刪除</button>
+                    </div>
+                `;
+
+                if (shouldCollapse) {
                     const btn = b.querySelector('.btn-expand-collapse');
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -1044,14 +1069,10 @@
                         }
                     });
                 } else {
-                    b.innerHTML = labelHtml + renderMarkdown(md);
                     injectCodeCopyButtons(b);
                 }
                 
-                const actions = document.createElement('div');
-                actions.className = 'bubble-actions';
-                b.appendChild(actions);
-                
+                const actions = b.querySelector('.bubble-actions');
                 addDownloadButton(actions, md);
                 chatArea.appendChild(b);
                 scrollToBottom();
@@ -1155,7 +1176,7 @@
                     URL.revokeObjectURL(url);
                     showToast(`已下載 ${ext} ✨`);
                 });
-                container.appendChild(btn);
+                container.insertBefore(btn, container.firstChild);
             }
 
             function detectFileType(md) {
@@ -1398,7 +1419,11 @@
                 }
 
                 btnSend.disabled = true;
-                addUserBubble(ut || '(傳送檔案)', pendingFiles.map(f => f.name));
+                
+                // 預先計算此訊息加入歷史紀錄後的索引值
+                const nextHistoryIndex = conversationHistory.length;
+                addUserBubble(ut || '(傳送檔案)', pendingFiles.map(f => f.name), nextHistoryIndex);
+                
                 textInput.value = ''; textInput.style.height = 'auto';
                 addTypingIndicator();
                 const fts = [...pendingFiles]; pendingFiles = [];
@@ -1428,16 +1453,21 @@
                     const reply = await callGemini(cfg, model);
                     
                     removeTypingIndicator();
-                    addAIBubble(reply);
+                    
+                    // 計算 AI 回覆的歷史索引
+                    const aiHistoryIndex = conversationHistory.length;
+                    addAIBubble(reply, aiHistoryIndex);
                     
                     conversationHistory.push({ role: 'assistant', content: reply });
-                    if (conversationHistory.length > 42) conversationHistory = [{ role: 'system', content: currentSystemPrompt }, ...conversationHistory.slice(-40)];
+                    if (conversationHistory.length > 42) {
+                        conversationHistory = [{ role: 'system', content: currentSystemPrompt }, ...conversationHistory.slice(-40)];
+                    }
                     saveChatHistory();
 
                 } catch (err) {
                     removeTypingIndicator();
                     const eb = document.createElement('div'); eb.className = 'bubble ai';
-                    eb.innerHTML = `<div class="label">🦊 ${currentCharacterName}</div>⚠️ ${escapeHtml(err.message)}`;
+                    eb.innerHTML = `<div class="label">${currentCharacterName}</div>⚠️ ${escapeHtml(err.message)}`;
                     chatArea.appendChild(eb); scrollToBottom();
                 }
                 btnSend.disabled = false;
@@ -1502,11 +1532,11 @@
                     hideWelcome();
                     for (let i = 1; i < conversationHistory.length; i++) {
                         const m = conversationHistory[i];
-                        if (m.role === 'user') addUserBubbleFromHistory(m.content);
-                        else addAIBubble(m.content);
+                        if (m.role === 'user') addUserBubbleFromHistory(m.content, i);
+                        else addAIBubble(m.content, i);
                     }
                     scrollToBottom();
-                } else if (currentFirstMessage) { hideWelcome(); addAIBubble(currentFirstMessage); }
+                } else if (currentFirstMessage) { hideWelcome(); addAIBubble(currentFirstMessage, 0); }
             }
 
             window.sendMessage = sendMessage;
@@ -1547,6 +1577,7 @@
             window.openLivePreview = openLivePreview;
             window.closeLivePreview = closeLivePreview;
             window.setPreviewDevice = setPreviewDevice;
+            window.confirmDeleteBubble = confirmDeleteBubble; // 暴露物理刪除方法
             init();
         })();
     </script>
