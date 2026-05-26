@@ -1061,11 +1061,39 @@
                 setTimeout(() => { if (window.hljs) hljs.highlightAll(); }, 50);
             }
 
-            // 動態注入複製代碼與實時預覽按鈕
+            // 動態注入「查看代碼」摺疊外殼與複製、預覽按鈕 (代碼預設隱藏)
             function injectCodeCopyButtons(bubbleElement) {
                 bubbleElement.querySelectorAll('pre').forEach(pre => {
+                    // 避免重複處理
+                    if (pre.parentNode.classList.contains('code-block-wrapper')) return;
+
                     const codeEl = pre.querySelector('code');
                     if (codeEl) {
+                        // 1. 建立最外層包裹器
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'code-block-wrapper code-collapsed'; // 預設摺疊/隱藏代碼
+
+                        // 2. 建立頂部摺疊控制條
+                        const toggleBar = document.createElement('div');
+                        toggleBar.className = 'code-toggle-bar';
+
+                        // 偵測代碼語言
+                        let lang = 'CODE';
+                        codeEl.classList.forEach(cls => {
+                            if (cls.startsWith('language-')) lang = cls.replace('language-', '').toUpperCase();
+                        });
+
+                        toggleBar.innerHTML = `
+                            <span class="code-toggle-title">💻 ${lang}</span>
+                            <button class="btn-toggle-code" type="button">👁️ 查看代碼</button>
+                        `;
+
+                        // 3. 執行 DOM 結構替換與包裹
+                        pre.parentNode.insertBefore(wrapper, pre);
+                        wrapper.appendChild(toggleBar);
+                        wrapper.appendChild(pre);
+
+                        // 4. 建立原本的複製與實時預覽按鈕
                         const btnContainer = document.createElement('div');
                         btnContainer.className = 'pre-action-container';
 
@@ -1099,6 +1127,19 @@
                         };
                         btnContainer.appendChild(copyBtn);
                         pre.appendChild(btnContainer);
+
+                        // 5. 綁定「查看代碼/隱藏代碼」摺疊事件
+                        const toggleBtn = toggleBar.querySelector('.btn-toggle-code');
+                        toggleBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            if (wrapper.classList.contains('code-collapsed')) {
+                                wrapper.classList.remove('code-collapsed');
+                                toggleBtn.textContent = '🙈 隱藏代碼';
+                            } else {
+                                wrapper.classList.add('code-collapsed');
+                                toggleBtn.textContent = '👁️ 查看代碼';
+                            }
+                        });
                     }
                 });
             }
@@ -1159,6 +1200,7 @@
                 return (md.split('\n')[0].substring(0,20).replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, '_') || 'reply') + '.txt';
             }
 
+            // ==================== 正在輸入指示器 ====================
             function addTypingIndicator() {
                 hideWelcome();
                 const d = document.createElement('div'); d.className = 'typing-indicator'; d.id = 'typingIndicator';
@@ -1544,3 +1586,4 @@
     </script>
 </body>
 </html>
+
