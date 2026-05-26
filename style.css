@@ -532,14 +532,13 @@ body {
     z-index: 5;
 }
 
-/* 🎨 視覺優化：摺疊控制條與代碼區無縫貼合，消除邊界感 */
 .code-toggle-bar {
-    background: #1e1e2e; /* 背景改為與代碼區一致的 #1e1e2e */
-    padding: 10px 14px 6px; /* 稍微調整 padding，讓控制條與代碼內容緊貼 */
+    background: #1e1e2e;
+    padding: 10px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: none; /* 移除交界處的線條，達成無縫視覺效果 */
+    border-bottom: none;
 }
 
 .code-toggle-title {
