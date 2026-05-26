@@ -422,8 +422,8 @@ body {
 /* 頂部按鈕容器 */
 .pre-action-container {
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: 14px;
+    right: 10px;
     display: flex;
     gap: 6px;
     z-index: 10;
@@ -532,6 +532,7 @@ body {
     z-index: 5;
 }
 
+/* 🎨 視覺優化：摺疊控制條與代碼區無縫貼合，消除邊界感 */
 .code-toggle-bar {
     background: #1e1e2e;
     padding: 10px;
