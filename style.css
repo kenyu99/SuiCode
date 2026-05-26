@@ -1219,10 +1219,10 @@ body {
 /* 🎨 視覺優化：實時預覽大器懸浮卡片設計，高度 95vh、寬度 95vw 保留呼吸感 */
 .preview-modal-dialog {
     background: #111827;
-    width: 95vw;     /* 寬度設為 95vw，保留左右呼吸感 */
-    height: 95vh;    /* 高度設為 95vh，維持上下美感 */
-    max-width: 95vw;
-    max-height: 95vh;
+    width: 100vw;     /* 寬度設為 95vw，保留左右呼吸感 */
+    height: 90vh;    /* 高度設為 95vh，維持上下美感 */
+    max-width: 100vw;
+    max-height: 90vh;
     display: flex;
     flex-direction: column;
     overflow: hidden; /* 💡 核心修正：啟用切邊遮罩，強制內部元件切齊外容器圓角，徹底消除尖角！ */
