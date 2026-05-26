@@ -1216,20 +1216,19 @@ body {
 }
 
 /* ==================== 實時預覽沙盒樣式 ==================== */
-/* 🎨 視覺優化：實時預覽滿版佔滿整個螢幕 */
+/* 🎨 視覺優化：實時預覽大器懸浮卡片設計，高度 95vh、寬度 95vw 保留呼吸感 */
 .preview-modal-dialog {
     background: #111827;
-    border-radius: 0; /* 滿版去除圓角 */
-    width: 100vw;    /* 佔滿全寬 */
-    height: 90vh;   /* 佔滿全高 */
-    max-width: 100vw;
-    max-height: 90vh;
+    width: 95vw;     /* 寬度設為 95vw，保留左右呼吸感 */
+    height: 95vh;    /* 高度設為 95vh，維持上下美感 */
+    max-width: 95vw;
+    max-height: 95vh;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    box-shadow: none;
-    border: none;
-    border-radius: 15px;
+    overflow: hidden; /* 💡 核心修正：啟用切邊遮罩，強制內部元件切齊外容器圓角，徹底消除尖角！ */
+    box-shadow: var(--shadow-xl); /* 恢復卡片陰影，增加立體層次 */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg); /* 完美圓角 */
     animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
