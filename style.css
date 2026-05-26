@@ -1,4 +1,4 @@
-::root {
+:root {
     --primary: #4f46e5;
     --primary-light: #818cf8;
     --primary-dark: #3730a3;
@@ -1425,3 +1425,4 @@ body {
 .flex-full { flex: 1 1 100% !important; }
 .max-w-expand { max-width: 90vw !important; max-height: 90vh !important; }
 .expand-textarea { min-height: 120px; }
+
