@@ -326,7 +326,7 @@ body {
 
 /* 對話泡泡樣式 */
 .bubble {
-    max-width: 85%;
+    max-width: 94%;
     padding: 14px 18px;
     border-radius: var(--radius-lg);
     line-height: 1.6;
@@ -353,6 +353,7 @@ body {
 
 .bubble.ai {
     align-self: flex-start;
+    max-width: 94%;
     background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
@@ -500,13 +501,15 @@ body {
 }
 
 /* ==================== 高級代碼摺疊樣式 ==================== */
+/* 🎨 視覺優化：代碼包裹器與內部代碼塊融合 */
 .code-block-wrapper {
     position: relative;
     margin: 12px 0;
     border-radius: var(--radius-md);
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: var(--shadow-md);
+    background: #1e1e2e; /* 統一背景色，與 pre 相同 */
 }
 
 /* 摺疊狀態下的限制 */
@@ -529,14 +532,14 @@ body {
     z-index: 5;
 }
 
-/* 摺疊控制條 */
+/* 🎨 視覺優化：摺疊控制條與代碼區無縫貼合，消除邊界感 */
 .code-toggle-bar {
-    background: #111827;
-    padding: 8px 14px;
+    background: #1e1e2e; /* 背景改為與代碼區一致的 #1e1e2e */
+    padding: 10px 14px 6px; /* 稍微調整 padding，讓控制條與代碼內容緊貼 */
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: none; /* 移除交界處的線條，達成無縫視覺效果 */
 }
 
 .code-toggle-title {
@@ -1405,5 +1408,5 @@ body {
 .mb-2 { margin-bottom: 8px !important; }
 .flex-full { flex: 1 1 100% !important; }
 .max-w-expand { max-width: 90vw !important; max-height: 90vh !important; }
-.expand-textarea { min-height:
+.expand-textarea { min-height: 120px; }
 
