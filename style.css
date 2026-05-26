@@ -267,6 +267,7 @@ body {
     flex-direction: column;
     gap: 16px;
     scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
     background: transparent;
     position: relative;
     z-index: 1;
