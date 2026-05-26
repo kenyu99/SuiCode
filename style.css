@@ -1314,8 +1314,6 @@ body {
     border: none;
     background: #ffffff;
     border-radius: 8px;
-    clip-path: inset(0 round 8px);
-    -webkit-clip-path: inset(0 round 8px);
     box-shadow: var(--shadow-lg);
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -1327,8 +1325,6 @@ body {
     max-height: 812px;
     border: 10px solid #334155;
     border-radius: 32px;
-    clip-path: inset(0 round 32px);
-    -webkit-clip-path: inset(0 round 32px);
 }
 
 /* 複數附檔預覽區優化樣式 */
