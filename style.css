@@ -794,6 +794,12 @@ body {
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
 }
 
+.modal-hint {
+  font-size:11px;
+  color:var(--text-muted);
+  margin-top:2px;
+}
+
 .input-with-expand { 
     display: flex; 
     align-items: flex-start; 
