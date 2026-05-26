@@ -1327,24 +1327,6 @@ body {
     border-radius: 32px;
 }
 
-.preview-iframe-wrapper.mobile-mode::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 375px;
-    height: calc(100% - 30px); /* 自動扣除父容器上下各 15px 的 padding */
-    max-height: 812px;
-    
-    border: 10px solid #334155; /* 🌟 手機實體外框線移到這裡畫 */
-    border-radius: 32px;
-    
-    pointer-events: none; /* 🔑 關鍵：讓滑鼠與手指點擊可以直接「穿透」這層外殼，正常滑動操作裡面的網頁！ */
-    z-index: 10;          /* 確保疊在 iframe 的正上方，完美壓制任何漏出來的尖角 */
-    box-sizing: border-box;
-}
-
 /* 複數附檔預覽區優化樣式 */
 .file-preview-box {
     display: none;
