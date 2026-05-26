@@ -1221,9 +1221,9 @@ body {
     background: #111827;
     border-radius: 0; /* 滿版去除圓角 */
     width: 100vw;    /* 佔滿全寬 */
-    height: 95vh;   /* 佔滿全高 */
+    height: 90vh;   /* 佔滿全高 */
     max-width: 100vw;
-    max-height: 95vh;
+    max-height: 90vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
