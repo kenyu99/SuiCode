@@ -368,7 +368,7 @@
 1. 課程不限任何程式語言，使用者提出想學什麼（例如：Python、React、SQL 等），你便為其量身規劃循序漸進的系統化學習路線。
 2. 【核心考核與打分機制】：
    - 每次進入新課程、新概念、或新篇章之前，你【必須】先針對「上一堂課學過的內容」出一至兩道實作題對使用者進行考試。
-   - 收到使用者的回答或代碼後，你必須給出具體評分（滿分 100 分），並嚴格根據以下三個維度進行評估：
+   - 收到使用者的回答 or 代碼後，你必須給出具體評分（滿分 100 分），並嚴格根據以下三個維度進行評估：
      * 【邏輯架構】（代碼邏輯是否清晰、是否有處理邊界條件與潛在 Bug）
      * 【代碼縮排】（格式是否標準、排版是否美觀、可讀性是否良好）
      * 【冗餘程度】（代碼是否有多餘、繁瑣 or 重複的步驟，是否能以更優雅高效的方式重構）
@@ -956,6 +956,7 @@
                 scrollToBottom();
             }
 
+            // 歷史紀錄
             function addUserBubbleFromHistory(content, historyIndex) {
                 const { cleanText, fileNames } = parseUserMessageContent(content);
                 const b = renderUserBubbleElement(cleanText, fileNames, historyIndex);
@@ -1046,8 +1047,6 @@
 
                 injectCodeCopyButtons(b);
                 
-                const actions = b.querySelector('.bubble-actions');
-                addDownloadButton(actions, md);
                 chatArea.appendChild(b);
                 scrollToBottom();
                 
@@ -1061,7 +1060,7 @@
                 setTimeout(() => { if (window.hljs) hljs.highlightAll(); }, 50);
             }
 
-            // 動態注入「查看代碼」摺疊外殼與複製、預覽按鈕 (代碼預設隱藏)
+            // 動態注入「查看代碼」摺疊外殼與複製、預覽、專屬下載按鈕 (預設隱藏代碼)
             function injectCodeCopyButtons(bubbleElement) {
                 bubbleElement.querySelectorAll('pre').forEach(pre => {
                     // 避免重複處理
@@ -1093,7 +1092,7 @@
                         wrapper.appendChild(toggleBar);
                         wrapper.appendChild(pre);
 
-                        // 4. 建立原本的複製與實時預覽按鈕
+                        // 4. 建立複製、預覽、以及僅下載代碼的按鈕容器
                         const btnContainer = document.createElement('div');
                         btnContainer.className = 'pre-action-container';
 
@@ -1110,6 +1109,30 @@
                             };
                             btnContainer.appendChild(previewBtn);
                         }
+
+                        // 僅下載此代碼區塊的按鈕
+                        const downloadBtn = document.createElement('button');
+                        downloadBtn.className = 'code-copy-btn'; // 共用按鈕樣式
+                        downloadBtn.textContent = '📥 下載代碼';
+                        downloadBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            const cleanCode = codeEl.innerText;
+                            const extMap = { html:'html', css:'css', javascript:'js', js:'js', typescript:'ts', python:'py', java:'java', cpp:'cpp', c:'c', php:'php', ruby:'rb', go:'go', rust:'rs', swift:'swift', kotlin:'kt', sql:'sql', json:'json', xml:'xml', yaml:'yml', markdown:'md', bash:'sh' };
+                            const fileExt = extMap[lang.toLowerCase()] || 'txt';
+                            const fileName = `code.${fileExt}`;
+                            
+                            const blob = new Blob([cleanCode], { type: 'text/plain' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = fileName;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                            showToast(`已成功下載為 ${fileName} 💾`);
+                        };
+                        btnContainer.appendChild(downloadBtn);
 
                         const copyBtn = document.createElement('button');
                         copyBtn.className = 'code-copy-btn';
@@ -1174,30 +1197,6 @@
                     btnDeviceDesktop.classList.add('active');
                     btnDeviceMobile.classList.remove('active');
                 }
-            }
-
-            function addDownloadButton(container, md) {
-                const btn = document.createElement('button'); btn.className = 'btn-download'; btn.textContent = '📥';
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const ext = detectFileType(md);
-                    const blob = new Blob([md], { type: 'text/plain' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a'); a.href = url; a.download = ext;
-                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    showToast(`已下載 ${ext} ✨`);
-                });
-                container.insertBefore(btn, container.firstChild);
-            }
-
-            function detectFileType(md) {
-                const match = md.match(/```(\w+)/);
-                if (match) {
-                    const map = { html:'html', css:'css', javascript:'js', js:'js', typescript:'ts', python:'py', java:'java', cpp:'cpp', c:'c', php:'php', ruby:'rb', go:'go', rust:'rs', swift:'swift', kotlin:'kt', sql:'sql', json:'json', xml:'xml', yaml:'yml', markdown:'md', bash:'sh' };
-                    return `code.${map[match[1].toLowerCase()] || match[1].toLowerCase()}`;
-                }
-                return (md.split('\n')[0].substring(0,20).replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, '_') || 'reply') + '.txt';
             }
 
             // ==================== 正在輸入指示器 ====================
