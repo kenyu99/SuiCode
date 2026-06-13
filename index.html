@@ -1117,7 +1117,7 @@
                         downloadBtn.onclick = (e) => {
                             e.stopPropagation();
                             const cleanCode = codeEl.innerText;
-                            const extMap = { html:'html', css:'css', javascript:'js', js:'js', typescript:'ts', python:'py', java:'java', cpp:'cpp', c:'c', php:'php', ruby:'rb', go:'go', rust:'rs', swift:'swift', kotlin:'kt', sql:'sql', json:'json', xml:'xml', yaml:'yml', markdown:'md', bash:'sh' };
+                            const extMap = { html:'html', css:'css', javascript:'js', js:'js', typescript:'ts', py:'py', python:'py', java:'java', cpp:'cpp', c:'c', php:'php', ruby:'rb', go:'go', rs:'rs', swift:'swift', kotlin:'kt', sql:'sql', json:'json', xml:'xml', yaml:'yml', markdown:'md', bash:'sh', jsx:'jsx', tsx:'tsx' };
                             const fileExt = extMap[lang.toLowerCase()] || 'txt';
                             const fileName = `code.${fileExt}`;
                             
@@ -1264,7 +1264,8 @@
 
                     const entry = { name: f.name, type: f.type, content: '', dataUrl: null };
                     
-                    const codeExtensions = /\.(txt|csv|json|xml|html?|css|js|ts|md|py|java|cpp?|php|rb|go|rs|swift|kt|sh|ya?ml|toml|ini|log|sql)$/i;
+                    // 擴展以支援 React 格式的檔案（如 .jsx, .tsx）
+                    const codeExtensions = /\.(txt|csv|json|xml|html?|css|jsx?|tsx?|js|ts|md|py|java|cpp?|php|rb|go|rs|swift|kt|sh|ya?ml|toml|ini|log|sql)$/i;
                     const sheetExtensions = /\.(xlsx|xls|ods|tsv|dif|prn)$/i;
                     const pdfExtension = /\.pdf$/i;
                     
@@ -1585,4 +1586,3 @@
     </script>
 </body>
 </html>
-
